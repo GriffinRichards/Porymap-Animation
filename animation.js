@@ -435,13 +435,13 @@ var timerMax = defaultTimerMax;
 var animating = false;
 var animateFuncActive = false;
 
-// 2D array for objects tracking which overlays belong to which map spaces.
+// 2D array of objects tracking which overlays belong to which map spaces.
 // It's accessed with x/y map coordinates, e.g. overlayRangeMap[x][y], and
-// the objects 
-// This is used to
+// returns an object with a 'start' and 'end' property which are the first
+// and max overlay used by that map space. This is used to clear the overlays
+// for a space when it's drawn on.
 var overlayRangeMap;
 var numOverlays = 1;
-var curMetatileO
 
 // 3D array
 var overlayMap = {};
@@ -493,18 +493,17 @@ export function onMapOpened(mapName) {
 }
 
 export function onBlockChanged(x, y, prevBlock, newBlock) {
-    if (!animating || newBlock.metatileId == prevBlock.metatileId || !posHasAnimation(x, y))
+    if (!animating || newBlock.metatileId == prevBlock.metatileId)
         return;
 
     // Erase old animation
-    for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
-        map.clearOverlay(i);
-    overlayRangeMap[x][y] = {};
-    // TODO:
-    // - Remove overlay lists from overlayMap
+    if (posHasAnimation(x, y)) {
+        for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
+            map.clearOverlay(i);
+        // TODO: Remove overlay lists from overlayMap
+    }
 
     tryAddAnimation(x, y);
-
 }
 
 export function onTilesetUpdated(tilesetName) {
@@ -587,7 +586,7 @@ function updateOverlays(timer) {
 }
 
 function posHasAnimation(x, y) {
-    return overlayRangeMap[x][y] != undefined;
+    return overlayRangeMap[x][y].start != undefined;
 }
 
 function calculateTimerMax() {
@@ -600,16 +599,18 @@ function calculateTimerMax() {
 //-------------------
 
 function loadMapAnimations() {
-    overlayRangeMap = createMapMatrix();
     loadAnimations = false;
 
     curTilesetsAnimData = getCurrentTileAnimationData();
     if (curTilesetsAnimData == undefined)
         return; // Neither of the current tilesets have animations
 
-    for (let x = 0; x < mapWidth; x++)
-    for (let y = 0; y < mapHeight; y++)
-        tryAddAnimation(x, y);
+    overlayRangeMap = {};
+    for (let x = 0; x < mapWidth; x++) {
+        overlayRangeMap[x] = {};
+        for (let y = 0; y < mapHeight; y++)
+            tryAddAnimation(x, y);
+    }
 
     log("Loaded map animations.");
     //debug_printAnimData(curTilesetsAnimData);
@@ -635,6 +636,7 @@ function getCurrentTileAnimationData() {
 }
 
 function tryAddAnimation(x, y) {
+    overlayRangeMap[x][y] = {};
     let metatileId = map.getMetatileId(x, y);
     let metatileData = metatileScanCache[metatileId];
     
@@ -661,6 +663,10 @@ function tryAddAnimation(x, y) {
         if (pos >= tilesPerLayer) break;
         addStaticTileImage(x, y, pos, tiles[pos]);
     }
+    // TODO: Only increment if there were static tiles on this layer.
+    // Hide static overlays before image draw, push all used static overlays
+    // to an array, then reveal all the static overlays at once after all image
+    // draws. This should fix metatile bottom layers showing first during map paint.
     numOverlays++; // Static tiles are always grouped on a single overlay
 
     // Add frames for animated tiles on layer 1
@@ -832,10 +838,6 @@ function buildTilesetsData() {
             anims[tileNum].index = 0;
         }
     }
-}
-
-function createMapMatrix() {
-    return new Array(mapWidth).fill().map(()=>Array(mapHeight).fill({}));
 }
 
 //---------------
