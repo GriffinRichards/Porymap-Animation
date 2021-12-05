@@ -446,9 +446,6 @@ var curMetatileO
 // 3D array
 var overlayMap = {};
 
-// An array of all the intervals at which the current animations change
-var curIntervals = [];
-
 // Object for caching data about how to build an animation for a given metatile so
 // that when it's encountered again the animation can be created faster.
 // Each metatile id is a property, the value of which is an object that holds the
@@ -489,9 +486,10 @@ export function onProjectOpened(projectPath) {
 }
 
 export function onMapOpened(mapName) {
+    map.clearOverlay();
     mapWidth = map.getWidth();
     mapHeight = map.getHeight();
-    resetAnimation();
+    loadAnimations = true;
 }
 
 export function onBlockChanged(x, y, prevBlock, newBlock) {
@@ -510,7 +508,8 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
 }
 
 export function onTilesetUpdated(tilesetName) {
-    resetAnimation();
+    map.clearOverlay();
+    loadAnimations = true;
 }
 
 //-------------------
@@ -525,6 +524,7 @@ export function animate() {
         return;
     }
     if (loadAnimations) {
+        resetAnimation();
         benchmark_init();
         loadMapAnimations();
         benchmark_log("build animations");
@@ -556,7 +556,6 @@ function resetAnimation() {
     numOverlays = 1;
     timer = 0;
     timerMax = calculateTimerMax();
-    curIntervals = [];
     overlayMap = {};
     curTilesetsAnimData = {};
     loadAnimations = true;
@@ -569,10 +568,7 @@ function resetAnimation() {
 //
 function updateOverlays(timer) {
     // For each timing interval of the current animations
-    // TODO: Update this to not use curIntervals. It can
-    // instead loop over the properties of overlayMap
-    for (let i = 0; i < curIntervals.length; i++) {
-        let interval = curIntervals[i];
+    for (const interval in overlayMap) {
         if (timer % interval == 0) {
             benchmark_init();
             let overlayLists = overlayMap[interval];
@@ -740,12 +736,8 @@ function addAnimTileFrames(x, y, tilePos, tile) {
 
     numOverlays += numFrames;
 
-    // Add this tile's animating interval to the list
-    let interval = curTilesetsAnimData[tileId].interval;
-    if (curIntervals.indexOf(interval) == -1) {
-        curIntervals.push(interval);
-    }
     // Add overlays to animation map
+    let interval = curTilesetsAnimData[tileId].interval;
     if (overlayMap[interval] == undefined)
         overlayMap[interval] = [];
     overlayMap[interval].push(overlays);
