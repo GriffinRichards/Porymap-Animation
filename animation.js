@@ -42,6 +42,23 @@
         - Overlays consumed: 60419
 
 
+    # After introducing allStaticOverlays[]
+        Petalburg
+        - Animation time: ~0
+        - Build time: ~25
+        - Overlays consumed: 81
+
+        Slateport
+        - Animation time: ~3
+        - Build time: ~1432
+        - Overlays consumed: 4389
+
+        Route 124
+        - Animation time: ~13
+        - Build time: ~15704
+        - Overlays consumed: 45089
+
+
 
 
 */
@@ -446,6 +463,9 @@ var numOverlays = 1;
 // 3D array
 var overlayMap = {};
 
+// Array of all the active static overlays. Used to re-show them after toggling animation.
+var allStaticOverlays = [];
+
 // Object for caching data about how to build an animation for a given metatile so
 // that when it's encountered again the animation can be created faster.
 // Each metatile id is a property, the value of which is an object that holds the
@@ -466,7 +486,7 @@ var curAnimToOverlayMap = {};
 
 // Whether or not the animations should be reloaded.
 // This needs to happen when the map or tilesets change.
-var loadAnimations = false;
+var loadAnimations = true;
 
 var mapWidth;
 var mapHeight;
@@ -492,6 +512,7 @@ export function onMapOpened(mapName) {
     loadAnimations = true;
 }
 
+// TODO (On API's end): onBlockChanged is not triggered by Undo/Redo
 export function onBlockChanged(x, y, prevBlock, newBlock) {
     if (!animating || newBlock.metatileId == prevBlock.metatileId)
         return;
@@ -519,7 +540,7 @@ export function animate() {
     if (!animating) {
         // Stop animation
         animateFuncActive = false;
-        resetAnimation();
+        map.hideOverlay();
         return;
     }
     if (loadAnimations) {
@@ -547,7 +568,10 @@ function tryStartAnimation() {
     if (!animateFuncActive) {
         animateFuncActive = true;
         animate();
-    }    
+    }
+    // Show static overlays
+    for (let i = 0; i < allStaticOverlays.length; i++)
+        map.showOverlay(allStaticOverlays[i]);
 }
 
 function resetAnimation() {
@@ -556,8 +580,7 @@ function resetAnimation() {
     timer = 0;
     timerMax = calculateTimerMax();
     overlayMap = {};
-    curTilesetsAnimData = {};
-    loadAnimations = true;
+    allStaticOverlays = [];
 }
 
 //
@@ -637,6 +660,7 @@ function getCurrentTileAnimationData() {
 
 function tryAddAnimation(x, y) {
     overlayRangeMap[x][y] = {};
+    let curStaticOverlays = [];
     let metatileId = map.getMetatileId(x, y);
     let metatileData = metatileScanCache[metatileId];
     
@@ -658,16 +682,19 @@ function tryAddAnimation(x, y) {
     //       bools for whether or not each position is animated.
 
     // Add static tiles on layer 1
+    let addStaticOverlay = false;
     for (var i = 0; i < staticPositions.length; i++) {
         let pos = staticPositions[i];
         if (pos >= tilesPerLayer) break;
         addStaticTileImage(x, y, pos, tiles[pos]);
+        addStaticOverlay = true;
     }
-    // TODO: Only increment if there were static tiles on this layer.
-    // Hide static overlays before image draw, push all used static overlays
-    // to an array, then reveal all the static overlays at once after all image
-    // draws. This should fix metatile bottom layers showing first during map paint.
-    numOverlays++; // Static tiles are always grouped on a single overlay
+    if (addStaticOverlay) {
+        allStaticOverlays.push(numOverlays);
+        curStaticOverlays.push(numOverlays);
+        numOverlays++;
+        addStaticOverlay = false;
+    }
 
     // Add frames for animated tiles on layer 1
     curAnimToOverlayMap = {};
@@ -682,8 +709,14 @@ function tryAddAnimation(x, y) {
         let pos = staticPositions[i];
         if (pos >= tilesPerLayer * 2) break;
         addStaticTileImage(x, y, pos, tiles[pos]);
+        addStaticOverlay = true;
     }
-    numOverlays++;
+    if (addStaticOverlay) {
+        allStaticOverlays.push(numOverlays);
+        curStaticOverlays.push(numOverlays);
+        numOverlays++;
+        addStaticOverlay = false;
+    }
 
     // Add frames for animated tiles on layer 2
     curAnimToOverlayMap = {};
@@ -698,8 +731,14 @@ function tryAddAnimation(x, y) {
         let pos = staticPositions[i];
         if (pos >= tilesPerLayer * 3) break;
         addStaticTileImage(x, y, pos, tiles[pos]);
+        addStaticOverlay = true;
     }
-    numOverlays++;
+    if (addStaticOverlay) {
+        allStaticOverlays.push(numOverlays);
+        curStaticOverlays.push(numOverlays);
+        numOverlays++;
+        addStaticOverlay = false;
+    }
 
     // Add frames for animated tiles on layer 3
     curAnimToOverlayMap = {};
@@ -708,6 +747,9 @@ function tryAddAnimation(x, y) {
         if (pos >= tilesPerLayer * 3) break;
         addAnimTileFrames(x, y, pos, tiles[pos]);
     }
+
+    for (i = 0; i < curStaticOverlays.length; i++)
+        map.showOverlay(curStaticOverlays[i]);
 
     overlayRangeMap[x][y].end = numOverlays;
 }
@@ -755,7 +797,7 @@ function addAnimTileImage(x, y, tilePos, tile, frame, imageOffset, overlayId) {
 }
 
 function addStaticTileImage(x, y, tilePos, tile) {
-    map.showOverlay(numOverlays); // Static tile overlays are always visible
+    map.hideOverlay(numOverlays);
     map.addTileImage(x_mapToTile(x, tilePos), y_mapToTile(y, tilePos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
 }
 
