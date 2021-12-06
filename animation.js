@@ -3,8 +3,8 @@
 
     TODO:
     - Map switching is still broken
-    - Allow offest animations
     - Properly remove old overlays
+    - Disable animation on the events tab (requires new API functions)
 
 
     OPTIMIZATION:
@@ -25,7 +25,7 @@
         - Build time: ~16456
         - Overlays consumed: 191677
 
-    # After introducing curAnimToOverlayMap
+    # After introducing overlay grouping for same-layer identical animations by using curAnimToOverlayMap
         Petalburg
         - Animation time: ~0
         - Build time: ~25
@@ -42,7 +42,7 @@
         - Overlays consumed: 60419
 
 
-    # After introducing allStaticOverlays[] and allowing cross-layer overlay grouping
+    # After limiting static overlay creation and allowing cross-layer overlay grouping
         Petalburg
         - Animation time: ~0
         - Build time: ~25
@@ -127,13 +127,21 @@ const tilesetsData = {
         folder: "rustboro/anim",
         primary: false,
         tileAnimations: {
-            /*: { //VDEST
+            640: { // TODO: Maybe condense copy lists into a single numCopies and offset(s) field
                 folder: "windy_water/",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
-                numTiles: ,
+                copies: [{tileId: 644, frameOffset: 1},
+                         {tileId: 648, frameOffset: 2},
+                         {tileId: 652, frameOffset: 3},
+                         {tileId: 656, frameOffset: 4},
+                         {tileId: 660, frameOffset: 5},
+                         {tileId: 664, frameOffset: 6},
+                         {tileId: 668, frameOffset: 7},
+                ],
+                numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
-            },*/
+            },
             960: { // 0x3C0
                 folder: "fountain",
                 frames: ["0", "1"],
@@ -173,20 +181,50 @@ const tilesetsData = {
         folder: "mauville/anim",
         primary: false,
         tileAnimations: {
-            /*: { // VDEST
+            608: {
                 folder: "flower_1",
-                frames: ["0", "1", "2", "3", "4"],
-                numTiles: ,
+                frames: ["0", "0", "1", "2",
+                         "3", "3", "3", "3",
+                         "3", "3", "2", "1",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4"],
+                copies: [{tileId: 612, frameOffset: 1},
+                         {tileId: 616, frameOffset: 2},
+                         {tileId: 620, frameOffset: 3},
+                         {tileId: 624, frameOffset: 4},
+                         {tileId: 628, frameOffset: 5},
+                         {tileId: 632, frameOffset: 6},
+                         {tileId: 636, frameOffset: 7},
+                ],
+                numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
             },
-            : {
+            640: {
                 folder: "flower_2",
-                frames: ["0", "1", "2", "3", "4"],
-                numTiles: ,
+                frames: ["0", "0", "1", "2",
+                         "3", "3", "3", "3",
+                         "3", "3", "2", "1",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4",
+                         "0", "0", "4", "4"],
+                copies: [{tileId: 644, frameOffset: 1},
+                         {tileId: 648, frameOffset: 2},
+                         {tileId: 652, frameOffset: 3},
+                         {tileId: 656, frameOffset: 4},
+                         {tileId: 660, frameOffset: 5},
+                         {tileId: 664, frameOffset: 6},
+                         {tileId: 668, frameOffset: 7},
+                ],
+                numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
-            },*/
+            },
         },
     },
     "gTileset_Lavaridge": {
@@ -196,14 +234,7 @@ const tilesetsData = {
             800: {
                 folder: "steam",
                 frames: ["0", "1", "2", "3"],
-                offsetCopies: [2],
-                numTiles: 4,
-                interval: 16,
-                imageWidth: 16,
-            },
-            804: { // TODO: Collapse as a frame offset of above
-                folder: "steam",
-                frames: ["2", "3", "0", "1"],
+                copies: [{tileId: 804, frameOffset: 2}],
                 numTiles: 4,
                 interval: 16,
                 imageWidth: 16,
@@ -222,13 +253,21 @@ const tilesetsData = {
         folder: "ever_grande/anim",
         primary: false,
         tileAnimations: {
-            /*: { // VDEST
+            736: { // TODO: Fix palette upstream
                 folder: "flowers",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
+                copies: [{tileId: 740, frameOffset: 1},
+                         {tileId: 744, frameOffset: 2},
+                         {tileId: 748, frameOffset: 3},
+                         {tileId: 752, frameOffset: 4},
+                         {tileId: 756, frameOffset: 5},
+                         {tileId: 760, frameOffset: 6},
+                         {tileId: 764, frameOffset: 7},
+                ],
                 numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
-            },*/
+            },
         },
     },
     "gTileset_Pacifidlog": {
@@ -725,6 +764,9 @@ function addAnimTileFrames(x, y, tilePos, tile) {
     let tileId = tile.tileId;
     let overlays = [];
 
+    // TODO: Reduce overlay usage by treating any animation with the same
+    // number of frames and the same interval as having the same identifier.
+    // Or better(?) yet actually create the identifiers using this information.
     let identifier = curTilesetsAnimData[tileId].identifier;
     let overlayId = curAnimToOverlayMap[identifier];
     if (overlayId == undefined) {
@@ -736,6 +778,7 @@ function addAnimTileFrames(x, y, tilePos, tile) {
         var newAnimation = false;
     }
 
+    // TODO: Reduce image creation by repeating overlays for repeated frames
     // Add frame images for this tile
     let numFrames = curTilesetsAnimData[tileId].frames.length;
     let imageOffset = getTileImageOffset(tileId);
@@ -758,6 +801,13 @@ function addAnimTileFrames(x, y, tilePos, tile) {
     overlayMap[interval].push(overlays);
 }
 
+// TODO: > 90% of map load time comes from createImage. Optimization ideas:
+// - Metatile overrides. Last resort. Should cut time on large repetitive maps by 75%, but is an easily lost optimization and requires user data
+// - Determine if all 4 tiles on a layer result in a cohesive subset of the image, and if so combine them into a single image. If possible, this will
+//   function like a dynamic version of the above.
+// - If reading the image from the filepath is costly it may be possible to load the image once, save the data, and re-use the image. This would require
+//   updates to the API, and is debatably the source of slowdown (it may just be the overhead for the creation of any QImage)
+// - An alternative to QImage? Perhaps pixmaps are faster
 function addAnimTileImage(x, y, tilePos, tile, frame, imageOffset, overlayId) {
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
     map.createImage(x_mapToTile(x, tilePos), y_mapToTile(y, tilePos), filepath, tileWidth, tileHeight, imageOffset, tile.xflip, tile.yflip, true, overlayId);
@@ -831,8 +881,8 @@ function buildTilesetsData() {
         let basePath = root + (tilesetsData[tilesetName].primary ? primaryPath : secondaryPath);
         let tilesetPath = basePath + tilesetsData[tilesetName].folder + "/";
         let anims = tilesetsData[tilesetName].tileAnimations;
-        let tileNums = Object.keys(anims);
-        if (tileNums.length == 0) {
+        let tileIds = Object.keys(anims);
+        if (tileIds.length == 0) {
             // No animations, delete it
             warn(tilesetName + " has a header but no tile animations.");
             delete tilesetsData[tilesetName];
@@ -840,26 +890,49 @@ function buildTilesetsData() {
         }
 
         // For each animation start tile
-        for (let i = 0; i < tileNums.length; i++) {
-            let tileNum = tileNums[i];
-            if (!verifyTileAnimData(tileNum, tilesetName)) continue;
+        for (let i = 0; i < tileIds.length; i++) {
+            let tileId = tileIds[i];
+            if (!verifyTileAnimData(tileId, tilesetName)) continue;
 
             // Construct filepaths for animation frames
-            if (anims[tileNum].externalFolder)
-                var animPath = root + anims[tileNum].folder + "/";
-            else animPath = tilesetPath + anims[tileNum].folder + "/";
-            anims[tileNum].filepaths = [];
-            for (let frame = 0; frame < anims[tileNum].frames.length; frame++)
-                anims[tileNum].filepaths[frame] = animPath + anims[tileNum].frames[frame] + animFileExtension;
-            anims[tileNum].identifier = i;
+            if (anims[tileId].externalFolder)
+                var animPath = root + anims[tileId].folder + "/";
+            else animPath = tilesetPath + anims[tileId].folder + "/";
+            anims[tileId].filepaths = [];
+            let numFrames = anims[tileId].frames.length;
+            for (let frame = 0; frame < numFrames; frame++)
+                anims[tileId].filepaths[frame] = animPath + anims[tileId].frames[frame] + animFileExtension;
+            anims[tileId].identifier = i;
 
             // Copy first tile animation for the remaining tiles
-            for (let j = 1; j < anims[tileNum].numTiles; j++) {
-                let nextTileNum = parseInt(tileNum) + j;
-                anims[nextTileNum] = Object.assign({}, anims[tileNum]);
-                anims[nextTileNum].index = j;
+            let tileIdInt = parseInt(tileId);
+            for (let j = 1; j < anims[tileId].numTiles; j++) {
+                let nextTileId = tileIdInt + j;
+                anims[nextTileId] = Object.assign({}, anims[tileId]);
+                anims[nextTileId].index = j;
             }
-            anims[tileNum].index = 0;
+            anims[tileId].index = 0;
+
+            // Create copies of animation tiles with offset frame timings (if any)
+            if (!anims[tileId].copies) continue;
+            for (let j = 0; j < anims[tileId].copies.length; j++) {
+                let copyData = anims[tileId].copies[j];
+                let offset = Math.abs(numFrames - copyData.frameOffset);
+
+                // Shift frame filepaths
+                let copyFilepaths = [];
+                for (let frame = 0; frame < numFrames; frame++)
+                    copyFilepaths[frame] = anims[tileId].filepaths[(frame + offset) % numFrames];
+
+                // Copy all tiles for offset animation
+                let copyTileIdInt = parseInt(copyData.tileId);
+                for (let k = 0; k < anims[tileId].numTiles; k++) {
+                    let nextTileId = copyTileIdInt + k;
+                    anims[nextTileId] = Object.assign({}, anims[tileId]);
+                    anims[nextTileId].index = k;
+                    anims[nextTileId].filepaths = copyFilepaths;
+                }
+            }
         }
     }
 }
@@ -894,9 +967,9 @@ function verifyTilesetData(tilesetName) {
     return valid;
 }
 
-function verifyTileAnimData(tileNum, tilesetName) {
+function verifyTileAnimData(tileId, tilesetName) {
     // Assumes tileset data has already been verified
-    let anim = tilesetsData[tilesetName].tileAnimations[tileNum];
+    let anim = tilesetsData[tilesetName].tileAnimations[tileId];
     if (anim == undefined)
         return false; // A missing tile animation is invalid but not an error
 
@@ -904,12 +977,12 @@ function verifyTileAnimData(tileNum, tilesetName) {
     let properties = ["numTiles", "frames", "interval", "folder", "imageWidth"];
     for (let i = 0; i < properties.length; i++) {
         if (!anim.hasOwnProperty(properties[i])) {
-            map.error(logPrefix + "Animation for tile " + tileNum + " of " + tilesetName + " is missing property '" + properties[i] + "'");
+            map.error(logPrefix + "Animation for tile " + tileId + " of " + tilesetName + " is missing property '" + properties[i] + "'");
             valid = false;
         }
     }
     if (!valid)
-        delete tilesetsData[tilesetName].tileAnimations[tileNum];
+        delete tilesetsData[tilesetName].tileAnimations[tileId];
     return valid;
 }
 
@@ -922,9 +995,9 @@ function debug_printAnimDataByTileset() {
 }
 
 function debug_printAnimData(anims) {
-    for (var tileNum in anims) {
-        map.log(tileNum);
-        let anim = anims[tileNum];
+    for (var tileId in anims) {
+        map.log(tileId);
+        let anim = anims[tileId];
         for (var property in anim) {
             map.log(property + ": " + anim[property]);
         }
