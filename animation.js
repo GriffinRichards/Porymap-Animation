@@ -492,6 +492,7 @@ var mapWidth;
 var mapHeight;
 
 var tilesPerMetatile;
+var maxMetatileLayer;
 
 //-------------------
 // Main Callbacks
@@ -500,6 +501,7 @@ var tilesPerMetatile;
 export function onProjectOpened(projectPath) {
     root = projectPath + "/";
     tilesPerMetatile = map.getNumTilesInMetatile();
+    maxMetatileLayer = 2; // map.getNumMetatileLayers(); TODO: Get number of layers from API
     map.registerAction("toggleAnimation", "Toggle map animations", toggleShortcut);
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
@@ -670,7 +672,7 @@ function tryAddAnimation(x, y) {
         metatileData = metatileScanCache[metatileId] = scanMetatile(metatileId);
 
     // Stop if the metatile has no animating tiles
-    if (!metatileData.hasAnim) return;
+    if (metatileData.tilePosData.length == 0) return;
 
     // Get data about the metatile
     let tilePosData = metatileData.tilePosData;
@@ -682,8 +684,8 @@ function tryAddAnimation(x, y) {
 
     // Add tile images.
     // tilePosData is sorted first by layer, then by whether the tile is static or animated.
-    // Most of the way this is laid out is to simplify tracking overlays to allow as many images
-    // as possible to be grouped together on the same overlays.
+    // Most of the way this is laid out is to simplify tracking overlays for allowing as many
+    // images as possible to be grouped together on the same overlays.
     let i = 0;
     while (i < len) {
         // Draw static tiles on a shared overlay until we hit an animated tile or the end of the array
@@ -777,39 +779,41 @@ function getTileImageOffset(tileId) {
 }
 
 function scanMetatile(metatileId) {
-    let hasAnim = false;
-    let tilePosData = [];
+    let savedColumns = [];
+    let staticTilePositions = [];
+    let animTilePositions = [];
     let tiles = map.getMetatileTiles(metatileId);
 
-    // TODO: Get number of layers from API
-    for (let layer = 0; layer < 2; layer++) {
-        let staticTilePosData = [];
-        let animTilePosData = [];
-        for (let i = 0; i < tilesPerLayer; i++) {
-            let tilePos = i + (layer * tilesPerLayer);
-            if (curTilesetsAnimData[tiles[tilePos].tileId] != undefined) {
-                // Found a tile that should animate
-                animTilePosData.push({pos: tilePos, animates: true});
-                hasAnim = true;
-            } else if (tiles[tilePos].tileId) {
-                // TODO: Instead of adding every static tile, track animating columns and
-                // add nonzero static tiles for only those columns
-                //for (let j = i; j >= tilesPerLayer; j -= tilesPerLayer) {
-                    //if (animTilePositions.indexOf(j - tilesPerLayer) != -1) {
-                        // Found a tile layered above an animating tile
-                        staticTilePosData.push({pos: tilePos, animates: false});
-                    //}
-                //}
+    // Scan metatile for animating tiles
+    for (let i = 0; i < tilesPerMetatile; i++) {
+        let layerPos = i % tilesPerLayer;
+        if (savedColumns.indexOf(layerPos) == -1 && curTilesetsAnimData[tiles[i].tileId] != undefined) {
+            // Animating tile found, save all tiles in this column
+            for (let j = layerPos; j < tilesPerMetatile; j += tilesPerLayer) {
+                if (!tiles[j].tileId) continue;
+                if (i == j || curTilesetsAnimData[tiles[j].tileId] != undefined)
+                    animTilePositions.push(j); // Save animating tile
+                else
+                    staticTilePositions.push(j); // Save static tile
             }
+            savedColumns.push(layerPos);
         }
-        // Group tile data by layer, with the static tiles coming first on each layer.
-        tilePosData.push(...staticTilePosData);
-        tilePosData.push(...animTilePosData);
+    }
+
+    // Merge static and animated tile arrays into one array
+    // sorted first by layer, then by static vs animated tiles.
+    let tilePosData = [];
+    staticTilePositions.sort((a, b) => b - a);
+    animTilePositions.sort((a, b) => b - a);
+    for (let layer = 0; layer < maxMetatileLayer; layer++) {
+        while (staticTilePositions[0] && Math.floor(staticTilePositions[0] / tilesPerLayer) == layer)
+            tilePosData.push({pos: staticTilePositions.pop(), animates: false});
+        while (animTilePositions[0] && Math.floor(animTilePositions[0] / tilesPerLayer) == layer)
+            tilePosData.push({pos: animTilePositions.pop(), animates: true});
     }
 
     let metatileData = {};
     metatileData.tilePosData = tilePosData;
-    metatileData.hasAnim = hasAnim;
     metatileData.tiles = tiles;
     return metatileData;
 }
@@ -928,13 +932,24 @@ function debug_printAnimData(anims) {
 }
 
 var benchmark;
+var runningTotal = 0;
 
 function benchmark_init() {
     benchmark = new Date().getTime();
+}
+
+function benchmark_add() {
+    let cur = new Date().getTime();
+    runningTotal += cur - benchmark;
+    benchmark = cur;
 }
 
 function benchmark_log(message) {
     let end = new Date().getTime();
     log(message + " time: " + (end - benchmark));
     benchmark = end;
+}
+
+function benchmark_total(message) {
+    log(message + " time: " + runningTotal);
 }
