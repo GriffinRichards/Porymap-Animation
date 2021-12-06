@@ -42,7 +42,7 @@
         - Overlays consumed: 60419
 
 
-    # After introducing allStaticOverlays[]
+    # After introducing allStaticOverlays[] and allowing cross-layer overlay grouping
         Petalburg
         - Animation time: ~0
         - Build time: ~25
@@ -51,12 +51,12 @@
         Slateport
         - Animation time: ~3
         - Build time: ~1432
-        - Overlays consumed: 4389
+        - Overlays consumed: 4368
 
         Route 124
         - Animation time: ~13
         - Build time: ~15704
-        - Overlays consumed: 45089
+        - Overlays consumed: 45054
 
 
 
@@ -505,6 +505,7 @@ export function onProjectOpened(projectPath) {
     if (animateOnLaunch) toggleAnimation();
 }
 
+// TODO: Add map exception list
 export function onMapOpened(mapName) {
     map.clearOverlay();
     mapWidth = map.getWidth();
@@ -668,89 +669,53 @@ function tryAddAnimation(x, y) {
     if (metatileData == undefined)
         metatileData = metatileScanCache[metatileId] = scanMetatile(metatileId);
 
-    // Check if this has any animated tiles
-    let animPositions = metatileData.animTilePositions;
-    if (animPositions.length == 0) return;
+    // Stop if the metatile has no animating tiles
+    if (!metatileData.hasAnim) return;
 
-    // This is an animating metatile
-    let staticPositions = metatileData.staticTilePositions;
+    // Get data about the metatile
+    let tilePosData = metatileData.tilePosData;
     let tiles = metatileData.tiles;
+    let len = tilePosData.length;
+
+    // Save starting overlay for this map space
     overlayRangeMap[x][y].start = numOverlays;
 
-    // TODO: This process can be simplified to a single loop
-    //       over an object that holds the tile positions and
-    //       bools for whether or not each position is animated.
+    // Add tile images.
+    // tilePosData is sorted first by layer, then by whether the tile is static or animated.
+    // Most of the way this is laid out is to simplify tracking overlays to allow as many images
+    // as possible to be grouped together on the same overlays.
+    let i = 0;
+    while (i < len) {
+        // Draw static tiles on a shared overlay until we hit an animated tile or the end of the array
+        let newStaticOverlay = false;
+        while(tilePosData[i] && !tilePosData[i].animates) {
+            let pos = tilePosData[i].pos;
+            addStaticTileImage(x, y, pos, tiles[pos]);
+            newStaticOverlay = true;
+            i++;
+        }
+        // Added static tile images, save and increment overlays
+        if (newStaticOverlay) {
+            allStaticOverlays.push(numOverlays);
+            curStaticOverlays.push(numOverlays);
+            numOverlays++;
+        }
 
-    // Add static tiles on layer 1
-    let addStaticOverlay = false;
-    for (var i = 0; i < staticPositions.length; i++) {
-        let pos = staticPositions[i];
-        if (pos >= tilesPerLayer) break;
-        addStaticTileImage(x, y, pos, tiles[pos]);
-        addStaticOverlay = true;
-    }
-    if (addStaticOverlay) {
-        allStaticOverlays.push(numOverlays);
-        curStaticOverlays.push(numOverlays);
-        numOverlays++;
-        addStaticOverlay = false;
-    }
-
-    // Add frames for animated tiles on layer 1
-    curAnimToOverlayMap = {};
-    for (var j = 0; j < animPositions.length; j++) {
-        let pos = animPositions[j];
-        if (pos >= tilesPerLayer) break;
-        addAnimTileFrames(x, y, pos, tiles[pos]);
-    }
-
-    // Add static tiles on layer 2
-    for (; i < staticPositions.length; i++) {
-        let pos = staticPositions[i];
-        if (pos >= tilesPerLayer * 2) break;
-        addStaticTileImage(x, y, pos, tiles[pos]);
-        addStaticOverlay = true;
-    }
-    if (addStaticOverlay) {
-        allStaticOverlays.push(numOverlays);
-        curStaticOverlays.push(numOverlays);
-        numOverlays++;
-        addStaticOverlay = false;
+        // Draw animated tiles until we hit a static tile or the end of the array.
+        // Overlay usage is handled already by addAnimTileFrames / curAnimToOverlayMap
+        curAnimToOverlayMap = {};
+        while (tilePosData[i] && tilePosData[i].animates) {
+            let pos = tilePosData[i].pos;
+            addAnimTileFrames(x, y, pos, tiles[pos]);
+            i++;
+        }
     }
 
-    // Add frames for animated tiles on layer 2
-    curAnimToOverlayMap = {};
-    for (; j < animPositions.length; j++) {
-        let pos = animPositions[j];
-        if (pos >= tilesPerLayer * 2) break;
-        addAnimTileFrames(x, y, pos, tiles[pos]);
-    }
-
-    // Add static tiles on layer 3
-    for (; i < staticPositions.length; i++) {
-        let pos = staticPositions[i];
-        if (pos >= tilesPerLayer * 3) break;
-        addStaticTileImage(x, y, pos, tiles[pos]);
-        addStaticOverlay = true;
-    }
-    if (addStaticOverlay) {
-        allStaticOverlays.push(numOverlays);
-        curStaticOverlays.push(numOverlays);
-        numOverlays++;
-        addStaticOverlay = false;
-    }
-
-    // Add frames for animated tiles on layer 3
-    curAnimToOverlayMap = {};
-    for (; j < animPositions.length; j++) {
-        let pos = animPositions[j];
-        if (pos >= tilesPerLayer * 3) break;
-        addAnimTileFrames(x, y, pos, tiles[pos]);
-    }
-
-    for (i = 0; i < curStaticOverlays.length; i++)
+    // Static tile images are hidden on creation and revealed all at once
+    for (let i = 0; i < curStaticOverlays.length; i++)
         map.showOverlay(curStaticOverlays[i]);
 
+    // Save end of overlay range for this map space
     overlayRangeMap[x][y].end = numOverlays;
 }
 
@@ -812,28 +777,41 @@ function getTileImageOffset(tileId) {
 }
 
 function scanMetatile(metatileId) {
-    let animTilePositions = [];
-    let staticTilePositions = [];
+    let hasAnim = false;
+    let tilePosData = [];
     let tiles = map.getMetatileTiles(metatileId);
-    for (let i = 0; i < tilesPerMetatile; i++) {
-        if (curTilesetsAnimData[tiles[i].tileId] != undefined) {
-            // Found a tile that should animate
-            animTilePositions.push(i);
-        } else if (tiles[i].tileId) {
-            //for (let j = i; j >= tilesPerLayer; j -= tilesPerLayer) {
-                //if (animTilePositions.indexOf(j - tilesPerLayer) != -1) {
-                    // Found a tile layered above an animating tile
-                    staticTilePositions.push(i);
+
+    // TODO: Get number of layers from API
+    for (let layer = 0; layer < 2; layer++) {
+        let staticTilePosData = [];
+        let animTilePosData = [];
+        for (let i = 0; i < tilesPerLayer; i++) {
+            let tilePos = i + (layer * tilesPerLayer);
+            if (curTilesetsAnimData[tiles[tilePos].tileId] != undefined) {
+                // Found a tile that should animate
+                animTilePosData.push({pos: tilePos, animates: true});
+                hasAnim = true;
+            } else if (tiles[tilePos].tileId) {
+                // TODO: Instead of adding every static tile, track animating columns and
+                // add nonzero static tiles for only those columns
+                //for (let j = i; j >= tilesPerLayer; j -= tilesPerLayer) {
+                    //if (animTilePositions.indexOf(j - tilesPerLayer) != -1) {
+                        // Found a tile layered above an animating tile
+                        staticTilePosData.push({pos: tilePos, animates: false});
+                    //}
                 //}
-            //}
+            }
         }
+        // Group tile data by layer, with the static tiles coming first on each layer.
+        tilePosData.push(...staticTilePosData);
+        tilePosData.push(...animTilePosData);
     }
 
-    let animation = {};
-    animation.animTilePositions = animTilePositions;
-    animation.staticTilePositions = staticTilePositions;
-    animation.tiles = tiles;
-    return animation;
+    let metatileData = {};
+    metatileData.tilePosData = tilePosData;
+    metatileData.hasAnim = hasAnim;
+    metatileData.tiles = tiles;
+    return metatileData;
 }
 
 //
