@@ -59,7 +59,7 @@
         - Build time: ~15704
         - Overlays consumed: 45053
 
-    # After combining images from animations on adjacent spaces
+    # After combining images from animations on adjacent spaces (and limiting cross-layer grouping to static tiles)
         Petalburg
         - Animation time: ~0
         - Build time: ~10
@@ -68,15 +68,12 @@
         Slateport
         - Animation time: ~3
         - Build time: ~1100
-        - Overlays consumed: 4367
+        - Overlays consumed: 4376
 
         Route 124
         - Animation time: ~13
         - Build time: ~12000
-        - Overlays consumed: 45053
-
-
-
+        - Overlays consumed: 45088
 
 */
 
@@ -743,6 +740,7 @@ function tryAddAnimation(x, y) {
     // Most of the way this is laid out is to simplify tracking overlays for allowing as many
     // images as possible to be grouped together on the same overlays.
     let i = 0;
+    let layer = -1;
     while (i < len) {
         // Draw static tiles on a shared overlay until we hit an animated tile or the end of the array
         let newStaticOverlay = false;
@@ -760,8 +758,12 @@ function tryAddAnimation(x, y) {
 
         // Draw animated tiles until we hit a static tile or the end of the array.
         // Overlay usage is handled already by addAnimTileFrames / curAnimToOverlayMap
-        curAnimToOverlayMap = {};
         while (metatileData[i] && metatileData[i].animates) {
+            // Reset cache between layers
+            if (metatileData[i].layer != layer) {
+                curAnimToOverlayMap = {};
+                layer = metatileData[i].layer;
+            }
             addAnimTileFrames(x, y, metatileData[i]);
             i++;
         }
@@ -960,18 +962,18 @@ function getMetatileAnimData(metatileId) {
     positions.static.sort((a, b) => b - a);
     positions.anim.sort((a, b) => b - a);
     for (let layer = 0; layer < maxMetatileLayer; layer++) {
-        while (positions.static[0] && Math.floor(positions.static[0] / tilesPerLayer) == layer) {
+        while (positions.static[0] && Math.floor(positions.static.slice(-1) / tilesPerLayer) == layer) {
             // Assemble data entry for static tile
             let tilePos = positions.static.pop();
             metatileData.push({animates: false, pos: tilePos, tile: tiles[tilePos]});
         }
-        while (positions.anim[0] && Math.floor(positions.anim[0] / tilesPerLayer) == layer) {
+        while (positions.anim[0] && Math.floor(positions.anim.slice(-1) / tilesPerLayer) == layer) {
             // Assemble data entry for animated tile
             let tilePos = positions.anim.pop();
             let tile = tiles[tilePos];
             let dim = dimensions[tilePos];
             if (!dim) continue;
-            metatileData.push({animates: true, pos: tilePos, tile: tile, w: dim.w, h: dim.h, imageOffset: dim.offset, id: dim.id});
+            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tile, w: dim.w, h: dim.h, imageOffset: dim.offset, id: dim.id});
         }
     }
     return metatileData;
