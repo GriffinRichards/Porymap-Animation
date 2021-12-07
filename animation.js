@@ -75,6 +75,12 @@
         - Build time: ~12000
         - Overlays consumed: 45088
 
+    # After re-using overlays/images for animations with repeated frames
+        Petalburg
+        - Animation time: ~0
+        - Build time: ~8
+        - Overlays consumed: 64
+
 */
 
 //====================
@@ -784,28 +790,37 @@ function addAnimTileFrames(x, y, data) {
     // TODO: Reduce overlay usage by treating any animation with the same
     // number of frames and the same interval as having the same identifier.
     // Or better(?) yet actually create the identifiers using this information.
-    let overlayId = curAnimToOverlayMap[data.id];
-    let newAnimation = (overlayId == undefined);
+    let baseOverlayId = curAnimToOverlayMap[data.id];
+    let newAnimation = (baseOverlayId == undefined);
     if (newAnimation) {
         // This is a new animation on this layer, it should use the next overlay.
         // Otherwise the animation already exists elsewhere on this layer and will be grouped on the same overlay
-        overlayId = curAnimToOverlayMap[data.id] = numOverlays;
+        baseOverlayId = curAnimToOverlayMap[data.id] = numOverlays;
     }
 
-    // TODO: Reduce image creation by repeating overlays for repeated frames
     // Add frame images for this tile
-    let numFrames = curTilesetsAnimData[tileId].frames.length;
-    for (let frame = 0; frame < numFrames; frame++, overlayId++) {
+    let frames = curTilesetsAnimData[tileId].frames;
+    let frameOverlays = {};
+    for (let i = 0; i < frames.length; i++) {
+        // Get overlay to use for this frame. Repeated frames will share an overlay/image
+        let overlayId = frameOverlays[frames[i]];
+        let newFrame = (overlayId == undefined);
+        if (newFrame) overlayId = baseOverlayId++;
         if (newAnimation) {
+            // Save and hide the overlay that will be used.
+            // Animated tile overlays are hidden until their frame is active
             overlays.push(overlayId);
-            map.hideOverlay(overlayId); // Animated tile overlays are hidden until their frame is active
+            if (newFrame) map.hideOverlay(overlayId);
         }
-        addAnimTileImage(x, y, data, frame, overlayId);
+        if (newFrame) {
+            addAnimTileImage(x, y, data, i, overlayId);
+            frameOverlays[frames[i]] = overlayId;
+        }
     }
 
     if (!newAnimation) return;
 
-    numOverlays += numFrames;
+    numOverlays = baseOverlayId;
 
     // Add overlays to animation map
     let interval = curTilesetsAnimData[tileId].interval;
