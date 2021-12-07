@@ -5,6 +5,7 @@
     - Map switching is still broken
     - Properly remove old overlays
     - Disable animation on the events tab (requires new API functions)
+        OR: Allow overlays to be drawn behind events (and map UI)
 
 
     OPTIMIZATION:
@@ -13,50 +14,66 @@
         Petalburg
         - Animation time: ~0
         - Build time: ~25
-        - Overlays consumed: 305
+        - Overlays consumed: 304
 
         Slateport
         - Animation time: ~6
         - Build time: ~1625
-        - Overlays consumed: 17320
+        - Overlays consumed: 17319
 
         Route 124
         - Animation time: ~35
         - Build time: ~16456
-        - Overlays consumed: 191677
+        - Overlays consumed: 191676
 
     # After introducing overlay grouping for same-layer identical animations by using curAnimToOverlayMap
         Petalburg
         - Animation time: ~0
         - Build time: ~25
-        - Overlays consumed: 113
+        - Overlays consumed: 112
 
         Slateport
         - Animation time: ~3
         - Build time: ~1439
-        - Overlays consumed: 5597
+        - Overlays consumed: 5596
 
         Route 124
         - Animation time: ~13
         - Build time: ~16108
-        - Overlays consumed: 60419
+        - Overlays consumed: 60418
 
 
     # After limiting static overlay creation and allowing cross-layer overlay grouping
         Petalburg
         - Animation time: ~0
         - Build time: ~25
-        - Overlays consumed: 81
+        - Overlays consumed: 80
 
         Slateport
         - Animation time: ~3
         - Build time: ~1432
-        - Overlays consumed: 4368
+        - Overlays consumed: 4367
 
         Route 124
         - Animation time: ~13
         - Build time: ~15704
-        - Overlays consumed: 45054
+        - Overlays consumed: 45053
+
+    # After combining images from animations on adjacent spaces
+        Petalburg
+        - Animation time: ~0
+        - Build time: ~10
+        - Overlays consumed: 80
+
+        Slateport
+        - Animation time: ~3
+        - Build time: ~1100
+        - Overlays consumed: 4367
+
+        Route 124
+        - Animation time: ~13
+        - Build time: ~12000
+        - Overlays consumed: 45053
 
 
 
@@ -253,7 +270,7 @@ const tilesetsData = {
         folder: "ever_grande/anim",
         primary: false,
         tileAnimations: {
-            736: { // TODO: Fix palette upstream
+            736: { // TODO: Handle alternate flower color?
                 folder: "flowers",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
                 copies: [{tileId: 740, frameOffset: 1},
@@ -510,7 +527,7 @@ var allStaticOverlays = [];
 // Each metatile id is a property, the value of which is an object that holds the
 // positions of animated tiles (animTilePositions), the positions of static tiles
 // layered on top of animated tiles (staticTilePositions), and all the tiles (tiles).
-var metatileScanCache = {};
+var metatileCache = {};
 
 // Object for storing data on all the possible tile animations in the current primary/secondary tilesets.
 // Each tile id is a property.
@@ -590,9 +607,11 @@ export function animate() {
         benchmark_init();
         loadMapAnimations();
         benchmark_log("build animations");
-        log("Took " + numOverlays + " overlays");
+        log("Took " + (numOverlays - 1) + " overlays");
     }
+    //benchmark_init();
     updateOverlays(timer);
+    //benchmark_log("animation");
     timer++;
     if (timer > timerMax)
         timer = 0;
@@ -634,7 +653,6 @@ function updateOverlays(timer) {
     // For each timing interval of the current animations
     for (const interval in overlayMap) {
         if (timer % interval == 0) {
-            benchmark_init();
             let overlayLists = overlayMap[interval];
             // For each tile animating at this interval
             for (let j = 0; j < overlayLists.length; j++) {
@@ -645,7 +663,6 @@ function updateOverlays(timer) {
                 map.hideOverlay(overlayList[prevFrame]);
                 map.showOverlay(overlayList[curFrame]);
             }
-            benchmark_log("animation");
         }
     }
 }
@@ -664,6 +681,7 @@ function calculateTimerMax() {
 //-------------------
 
 function loadMapAnimations() {
+    log("Loading map animations...")
     loadAnimations = false;
 
     curTilesetsAnimData = getCurrentTileAnimationData();
@@ -677,7 +695,7 @@ function loadMapAnimations() {
             tryAddAnimation(x, y);
     }
 
-    log("Loaded map animations.");
+    log("Map animations loaded.");
     //debug_printAnimData(curTilesetsAnimData);
 }
 
@@ -704,34 +722,32 @@ function tryAddAnimation(x, y) {
     overlayRangeMap[x][y] = {};
     let curStaticOverlays = [];
     let metatileId = map.getMetatileId(x, y);
-    let metatileData = metatileScanCache[metatileId];
+    let metatileData = metatileCache[metatileId];
     
     // If we haven't encountered this metatile yet try to build an animation for it.
     if (metatileData == undefined)
-        metatileData = metatileScanCache[metatileId] = scanMetatile(metatileId);
+        metatileData = metatileCache[metatileId] = getMetatileAnimData(metatileId);
 
     // Stop if the metatile has no animating tiles
-    if (metatileData.tilePosData.length == 0) return;
+    if (metatileData.length == 0) return;
 
     // Get data about the metatile
-    let tilePosData = metatileData.tilePosData;
     let tiles = metatileData.tiles;
-    let len = tilePosData.length;
+    let len = metatileData.length;
 
     // Save starting overlay for this map space
     overlayRangeMap[x][y].start = numOverlays;
 
     // Add tile images.
-    // tilePosData is sorted first by layer, then by whether the tile is static or animated.
+    // metatileData is sorted first by layer, then by whether the tile is static or animated.
     // Most of the way this is laid out is to simplify tracking overlays for allowing as many
     // images as possible to be grouped together on the same overlays.
     let i = 0;
     while (i < len) {
         // Draw static tiles on a shared overlay until we hit an animated tile or the end of the array
         let newStaticOverlay = false;
-        while(tilePosData[i] && !tilePosData[i].animates) {
-            let pos = tilePosData[i].pos;
-            addStaticTileImage(x, y, pos, tiles[pos]);
+        while(metatileData[i] && !metatileData[i].animates) {
+            addStaticTileImage(x, y, metatileData[i]);
             newStaticOverlay = true;
             i++;
         }
@@ -745,9 +761,8 @@ function tryAddAnimation(x, y) {
         // Draw animated tiles until we hit a static tile or the end of the array.
         // Overlay usage is handled already by addAnimTileFrames / curAnimToOverlayMap
         curAnimToOverlayMap = {};
-        while (tilePosData[i] && tilePosData[i].animates) {
-            let pos = tilePosData[i].pos;
-            addAnimTileFrames(x, y, pos, tiles[pos]);
+        while (metatileData[i] && metatileData[i].animates) {
+            addAnimTileFrames(x, y, metatileData[i]);
             i++;
         }
     }
@@ -760,34 +775,30 @@ function tryAddAnimation(x, y) {
     overlayRangeMap[x][y].end = numOverlays;
 }
 
-function addAnimTileFrames(x, y, tilePos, tile) {
-    let tileId = tile.tileId;
+function addAnimTileFrames(x, y, data) {
+    let tileId = data.tile.tileId;
     let overlays = [];
 
     // TODO: Reduce overlay usage by treating any animation with the same
     // number of frames and the same interval as having the same identifier.
     // Or better(?) yet actually create the identifiers using this information.
-    let identifier = curTilesetsAnimData[tileId].identifier;
-    let overlayId = curAnimToOverlayMap[identifier];
-    if (overlayId == undefined) {
-        // This is a new animation on this layer, it should use the next overlay
-        overlayId = curAnimToOverlayMap[identifier] = numOverlays;
-        var newAnimation = true;
-    } else {
-        // This animation exists elsewhere on this layer, group it on the same overlay
-        var newAnimation = false;
+    let overlayId = curAnimToOverlayMap[data.id];
+    let newAnimation = (overlayId == undefined);
+    if (newAnimation) {
+        // This is a new animation on this layer, it should use the next overlay.
+        // Otherwise the animation already exists elsewhere on this layer and will be grouped on the same overlay
+        overlayId = curAnimToOverlayMap[data.id] = numOverlays;
     }
 
     // TODO: Reduce image creation by repeating overlays for repeated frames
     // Add frame images for this tile
     let numFrames = curTilesetsAnimData[tileId].frames.length;
-    let imageOffset = getTileImageOffset(tileId);
     for (let frame = 0; frame < numFrames; frame++, overlayId++) {
         if (newAnimation) {
             overlays.push(overlayId);
             map.hideOverlay(overlayId); // Animated tile overlays are hidden until their frame is active
         }
-        addAnimTileImage(x, y, tilePos, tile, frame, imageOffset, overlayId);
+        addAnimTileImage(x, y, data, frame, overlayId);
     }
 
     if (!newAnimation) return;
@@ -802,46 +813,51 @@ function addAnimTileFrames(x, y, tilePos, tile) {
 }
 
 // TODO: > 90% of map load time comes from createImage. Optimization ideas:
-// - Metatile overrides. Last resort. Should cut time on large repetitive maps by 75%, but is an easily lost optimization and requires user data
-// - Determine if all 4 tiles on a layer result in a cohesive subset of the image, and if so combine them into a single image. If possible, this will
-//   function like a dynamic version of the above.
 // - If reading the image from the filepath is costly it may be possible to load the image once, save the data, and re-use the image. This would require
 //   updates to the API, and is debatably the source of slowdown (it may just be the overhead for the creation of any QImage)
 // - An alternative to QImage? Perhaps pixmaps are faster
-function addAnimTileImage(x, y, tilePos, tile, frame, imageOffset, overlayId) {
+function addAnimTileImage(x, y, data, frame, overlayId) {
+    let tile = data.tile;
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
-    map.createImage(x_mapToTile(x, tilePos), y_mapToTile(y, tilePos), filepath, tileWidth, tileHeight, imageOffset, tile.xflip, tile.yflip, true, overlayId);
+    map.createImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, true, overlayId);
 }
 
-function addStaticTileImage(x, y, tilePos, tile) {
+function addStaticTileImage(x, y, data) {
+    let tile = data.tile;
     map.hideOverlay(numOverlays);
-    map.addTileImage(x_mapToTile(x, tilePos), y_mapToTile(y, tilePos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
+    map.addTileImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
 }
 
+//
+// Take a map coordinate and tile position and return the coordinate to start drawing that tile's image
+//
 function x_mapToTile(x, tilePos) { return x * metatileWidth + ((tilePos % metatileTileWidth) * tileWidth); }
 function y_mapToTile(y, tilePos) { return y * metatileHeight + (Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight); }
+
+function getImageDataX(anim) { return (anim.index * tileWidth) % anim.imageWidth; };
+function getImageDataY(anim) { return Math.floor(anim.index * tileWidth / anim.imageWidth) * tileHeight; }
+
 function getTileImageOffset(tileId) {
     let anim = curTilesetsAnimData[tileId];
-    let index = anim.index;
-    let imageWidth = anim.imageWidth;
-
-    return ((index * tileWidth) % imageWidth) + (Math.floor(index * tileWidth / imageWidth) * tileHeight * imageWidth);
+    return getImageDataX(anim) + (getImageDataY(anim) * anim.imageWidth);
 }
 
-function scanMetatile(metatileId) {
-    let savedColumns = [];
-    let staticTilePositions = [];
-    let animTilePositions = [];
-    let tiles = map.getMetatileTiles(metatileId);
+function isAnimated(tileId) {
+    return curTilesetsAnimData[tileId] != undefined;
+}
 
+function scanTiles(tiles) {
     // Scan metatile for animating tiles
+    let animTilePositions = [];
+    let staticTilePositions = [];
+    let savedColumns = [];
     for (let i = 0; i < tilesPerMetatile; i++) {
         let layerPos = i % tilesPerLayer;
-        if (savedColumns.indexOf(layerPos) == -1 && curTilesetsAnimData[tiles[i].tileId] != undefined) {
+        if (savedColumns.indexOf(layerPos) == -1 && isAnimated(tiles[i].tileId)) {
             // Animating tile found, save all tiles in this column
             for (let j = layerPos; j < tilesPerMetatile; j += tilesPerLayer) {
                 if (!tiles[j].tileId) continue;
-                if (i == j || curTilesetsAnimData[tiles[j].tileId] != undefined)
+                if (i == j || isAnimated(tiles[j].tileId))
                     animTilePositions.push(j); // Save animating tile
                 else
                     staticTilePositions.push(j); // Save static tile
@@ -849,22 +865,115 @@ function scanMetatile(metatileId) {
             savedColumns.push(layerPos);
         }
     }
+    let positions = {};
+    positions["static"] = staticTilePositions;
+    positions["anim"] = animTilePositions;
+    return positions;
+}
 
-    // Merge static and animated tile arrays into one array
-    // sorted first by layer, then by static vs animated tiles.
-    let tilePosData = [];
-    staticTilePositions.sort((a, b) => b - a);
-    animTilePositions.sort((a, b) => b - a);
+//
+// Calculate the region of the image each tile should load from.
+//
+function getTileImageDimensions(tiles) {
+    let dimensions = [];
     for (let layer = 0; layer < maxMetatileLayer; layer++) {
-        while (staticTilePositions[0] && Math.floor(staticTilePositions[0] / tilesPerLayer) == layer)
-            tilePosData.push({pos: staticTilePositions.pop(), animates: false});
-        while (animTilePositions[0] && Math.floor(animTilePositions[0] / tilesPerLayer) == layer)
-            tilePosData.push({pos: animTilePositions.pop(), animates: true});
-    }
+        let posOffset = layer * tilesPerLayer;
+        let posData = {};
+        
+        // Calculate x/y offset and set default dimensions for each animated tile
+        for (let i = 0; i < tilesPerLayer; i++) {
+            let tilePos = i + posOffset;
+            let tile = tiles[tilePos];
+            if (!isAnimated(tile.tileId)) continue;
+            let anim = curTilesetsAnimData[tile.tileId];
+            posData[i] = {x: getImageDataX(anim), y: getImageDataY(anim), id: anim.identifier, tile: tile};
+            dimensions[tilePos] = {w: tileWidth, h: tileHeight, offset: (posData[i].x + (posData[i].y * anim.imageWidth)), id: anim.identifier};
+        }
 
-    let metatileData = {};
-    metatileData.tilePosData = tilePosData;
-    metatileData.tiles = tiles;
+        // Adjacent sequential positions from the same animations can share an image.
+        // Determine which if any can, update the dimensions, and stop tracking old positions
+        let hasRow1, hasRow2;
+        if (hasRow1 = canCombine_Horizontal(posData, 0, 1)) {
+            // Merge positions 0 and 1 into a single wide position
+            dimensions[0 + posOffset].w = tileWidth * 2;
+            dimensions[1 + posOffset] = undefined;
+            posData[1] = undefined;
+        }
+        if (hasRow2 = canCombine_Horizontal(posData, 2, 3)) {
+            // Merge positions 2 and 3 into a single wide position;
+            dimensions[2 + posOffset].w = tileWidth * 2;
+            dimensions[3 + posOffset] = undefined;
+            posData[3] = undefined;
+        }
+
+        // Only 1 horizontal image created, can't combine vertically
+        if (hasRow1 != hasRow2) continue;
+
+        if (canCombine_Vertical(posData, 0, 2)) {
+            // Merge positions 0 and 2 into a single tall position
+            // If 0 and 2 were already wide positions this creates a square
+            dimensions[0 + posOffset].h = tileHeight * 2;
+            dimensions[2 + posOffset] = undefined;
+            posData[2] = undefined
+        }
+        if (canCombine_Vertical(posData, 1, 3)) {
+            // Merge positions 1 and 3 into a single tall position
+            dimensions[1 + posOffset].h = tileHeight * 2;
+            dimensions[3 + posOffset] = undefined;
+            posData[3] = undefined
+        }
+    }
+    return dimensions;
+}
+
+function canCombine(data, a, b) {
+    return (data[a] && data[b]
+         && data[a].id == data[b].id
+         && data[a].tile.xflip == data[b].tile.xflip
+         && data[a].tile.yflip == data[b].tile.yflip);
+}
+
+function canCombine_Horizontal(data, a, b) {
+    return (canCombine(data, a, b)
+         && data[a].x == (data[b].x - tileWidth)
+         && data[a].y == data[b].y);
+}
+
+function canCombine_Vertical(data, a, b) {
+    return (canCombine(data, a, b)
+         && data[a].x == data[b].x
+         && data[a].y == (data[b].y - tileHeight));
+}
+
+function getMetatileAnimData(metatileId) {
+    let metatileData = [];
+    let tiles = map.getMetatileTiles(metatileId);
+    let positions = scanTiles(tiles);
+
+    // No animating tiles, end early
+    if (positions.anim.length == 0) return metatileData;
+
+    let dimensions = getTileImageDimensions(tiles);
+
+    // Merge static and animated tile arrays into one object array
+    // sorted first by layer, then by static vs animated tiles.
+    positions.static.sort((a, b) => b - a);
+    positions.anim.sort((a, b) => b - a);
+    for (let layer = 0; layer < maxMetatileLayer; layer++) {
+        while (positions.static[0] && Math.floor(positions.static[0] / tilesPerLayer) == layer) {
+            // Assemble data entry for static tile
+            let tilePos = positions.static.pop();
+            metatileData.push({animates: false, pos: tilePos, tile: tiles[tilePos]});
+        }
+        while (positions.anim[0] && Math.floor(positions.anim[0] / tilesPerLayer) == layer) {
+            // Assemble data entry for animated tile
+            let tilePos = positions.anim.pop();
+            let tile = tiles[tilePos];
+            let dim = dimensions[tilePos];
+            if (!dim) continue;
+            metatileData.push({animates: true, pos: tilePos, tile: tile, w: dim.w, h: dim.h, imageOffset: dim.offset, id: dim.id});
+        }
+    }
     return metatileData;
 }
 
@@ -890,6 +999,7 @@ function buildTilesetsData() {
         }
 
         // For each animation start tile
+        let identifier = 0;
         for (let i = 0; i < tileIds.length; i++) {
             let tileId = tileIds[i];
             if (!verifyTileAnimData(tileId, tilesetName)) continue;
@@ -902,7 +1012,7 @@ function buildTilesetsData() {
             let numFrames = anims[tileId].frames.length;
             for (let frame = 0; frame < numFrames; frame++)
                 anims[tileId].filepaths[frame] = animPath + anims[tileId].frames[frame] + animFileExtension;
-            anims[tileId].identifier = i;
+            anims[tileId].identifier = identifier++;
 
             // Copy first tile animation for the remaining tiles
             let tileIdInt = parseInt(tileId);
@@ -931,7 +1041,9 @@ function buildTilesetsData() {
                     anims[nextTileId] = Object.assign({}, anims[tileId]);
                     anims[nextTileId].index = k;
                     anims[nextTileId].filepaths = copyFilepaths;
+                    anims[nextTileId].identifier = identifier;
                 }
+                identifier++;
             }
         }
     }
