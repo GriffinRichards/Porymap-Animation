@@ -26,5 +26,5 @@ export const refreshTime =  Math.round(1000 / 59.73);
 export const defaultTimerMax = 55440; // Arbitrary "highly composite" number
 
 // Exceptions
-// If you'd like to always skip animations for certain maps or tilesets, add them to this list
-export const mapExceptions = [""]; // e.g. ["PetalburgCity", ""]
+// If you'd like to always skip animations for certain maps, add them to this list
+export const mapExceptions = [""]; // e.g. ["PetalburgCity", ...]

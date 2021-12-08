@@ -75,6 +75,7 @@ var curAnimToOverlayMap = {};
 // This needs to happen when the map or tilesets change.
 var loadAnimations = true;
 
+var mapName;
 var mapWidth;
 var mapHeight;
 
@@ -108,9 +109,9 @@ export function onProjectOpened(projectPath) {
     animating = false;
 }*/
 
-// TODO: Add map exception list
-export function onMapOpened(mapName) {
+export function onMapOpened(newMapName) {
     map.clearOverlay();
+    mapName = newMapName;
     mapWidth = map.getWidth();
     mapHeight = map.getHeight();
     loadAnimations = true;
@@ -258,13 +259,14 @@ function loadMapAnimations() {
 
 //------------------------------------------------------------------
 // Returns the tile animations present in the current tilesets.
-// If neither tileset has animation data it will return undefined.
+// If neither tileset has animation data or if the current map is
+// in the list of map exceptions it will return undefined.
 //------------------------------------------------------------------
 function getCurrentTileAnimationData() {
     let p_TilesetData = tilesetsData[map.getPrimaryTileset()];
     let s_TilesetData = tilesetsData[map.getSecondaryTileset()];
 
-    if (p_TilesetData == undefined && s_TilesetData == undefined)
+    if ((p_TilesetData == undefined && s_TilesetData == undefined) || mapExceptions.includes(mapName))
         return undefined;
     if (s_TilesetData == undefined)
         return p_TilesetData.tileAnimations;
