@@ -3,7 +3,6 @@
 
     TODO:
     - Properly remove old overlays
-    - Images should be loaded with the palette from the tile, not the png
     - Convert animation data to JSON
     - Disable animation on the events tab (requires new API functions)
         OR: Allow overlays to be drawn behind events (and map UI)
@@ -96,36 +95,23 @@
 */
 
 //====================
-//     Settings
-//====================
-
-// Animation data file
-import {tilesetsData} from './animations_emerald.js';
-
-const toggleShortcut = "Ctrl+A";
-const animateOnLaunch = true;
-const logPrefix = "ANIM: ";
-
-// Filepaths
-const tilesetsPath = "data/tilesets/"
-const primaryPath = tilesetsPath + "primary/";
-const secondaryPath = tilesetsPath + "secondary/";
-const animFileExtension = ".png";
-
-// Timing
- // There are 1000ms in a second, and the GBA's refresh rate is ~59.73 frames per second.
- // After rounding, the refresh rate will be just slightly slower than the GBA (17ms vs 16.74ms).
- // The timer operates in millisecond units, so it is not possible to set a closer interval.
-const refreshTime =  Math.round(1000 / 59.73);
-const defaultTimerMax = 55440 // Arbitrary "highly composite" number
-
-// Exceptions
-// If you'd like to always skip animations for certain maps or tilesets, add them to this list
-const mapExceptions = [""]; // e.g. ["PetalburgCity", ""]
-
-//====================
 //     Program
 //====================
+
+// Get settings
+import {
+    toggleShortcut,
+    animateOnLaunch,
+    logPrefix,
+    tilesetsData,
+    tilesetsPath,
+    primaryPath,
+    secondaryPath,
+    animFileExtension,
+    refreshTime,
+    defaultTimerMax,
+    mapExceptions
+} from "./animation_settings.js"
 
 var root = "";
 var timer = 0;
