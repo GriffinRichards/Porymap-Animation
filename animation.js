@@ -114,8 +114,8 @@ const animFileExtension = ".png";
 
 // Timing
  // There are 1000ms in a second, and the GBA's refresh rate is ~59.73 frames per second.
- // The timer operates in millisecond units, so it is not possible to set a closer interval.
  // After rounding, the refresh rate will be just slightly slower than the GBA (17ms vs 16.74ms).
+ // The timer operates in millisecond units, so it is not possible to set a closer interval.
 const refreshTime =  Math.round(1000 / 59.73);
 const defaultTimerMax = 55440 // Arbitrary "highly composite" number
 
@@ -486,7 +486,7 @@ function addAnimTileFrames(x, y, data) {
 function addAnimTileImage(x, y, data, frame, overlayId) {
     let tile = data.tile;
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
-    map.createImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, true, overlayId);
+    map.createImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
 }
 
 function addStaticTileImage(x, y, data) {
@@ -627,7 +627,8 @@ function canCombine(data, a, b) {
     return (data[a] && data[b]
          && data[a].id == data[b].id
          && data[a].tile.xflip == data[b].tile.xflip
-         && data[a].tile.yflip == data[b].tile.yflip);
+         && data[a].tile.yflip == data[b].tile.yflip
+         && data[a].tile.palette == data[b].tile.palette);
 }
 
 function canCombine_Horizontal(data, a, b) {
