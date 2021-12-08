@@ -6,18 +6,22 @@
     - Convert animation data to JSON
     - Disable animation on the events tab (requires new API functions)
         OR: Allow overlays to be drawn behind events (and map UI)
+    - Comments and clean-up
+    - Fix short flicker when toggling on (static overlays are always drawn
+      immediately, instead of waiting for first frame of their animation)
+    - Add RS data
 
 */
 
 //====================
-//     Program
+//       Data
 //====================
 
 import {
     toggleShortcut,
     animateOnLaunch,
     logPrefix,
-    tilesetsData,
+    versionData,
     tilesetsPath,
     primaryPath,
     secondaryPath,
@@ -32,6 +36,8 @@ var timer = 0;
 var timerMax = defaultTimerMax;
 var animating = false;
 var animateFuncActive = false;
+
+var tilesetsData;
 
 // 2D array of objects tracking which overlays belong to which map spaces.
 // It's accessed with x/y map coordinates, e.g. overlayRangeMap[x][y], and
@@ -84,9 +90,9 @@ const tilesPerLayer = metatileTileWidth * metatileTileHeight;
 const metatileWidth = tileWidth * metatileTileWidth;
 const metatileHeight = tileHeight * metatileTileHeight;
 
-//-------------------
-// Main Callbacks
-//-------------------
+//====================
+//   Main Callbacks
+//====================
 
 export function onProjectOpened(projectPath) {
     root = projectPath + "/";
@@ -96,6 +102,11 @@ export function onProjectOpened(projectPath) {
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
 }
+
+/*export function onProjectClosed(projectPath) {
+    resetAnimation();
+    animating = false;
+}*/
 
 // TODO: Add map exception list
 export function onMapOpened(mapName) {
@@ -125,14 +136,14 @@ export function onTilesetUpdated(tilesetName) {
     loadAnimations = true;
 }
 
-//-------------------
-// Animation running
-//-------------------
+//=====================
+//  Animation running
+//=====================
 
-//
+//---------------------------------------------------------------------------------
 // This is the main animation function.
-// While animation is active it will run, then call itself at a regular interval.
-//
+// While animation is active it will call itself in a loop at a regular interval.
+//---------------------------------------------------------------------------------
 export function animate() {
     if (!animating) {
         // Stop animation
@@ -215,15 +226,15 @@ function calculateTimerMax() {
     return defaultTimerMax;
 }
 
-//-------------------
-// Animation loading
-//-------------------
+//=====================
+//  Animation loading
+//=====================
 
-//
+//-------------------------------------------------------------------
 // This is the main animation loading function.
 // It retrieves the animation data for the current tilesets,
 // then scans the map and tries to add an animation at each space.
-//
+//-------------------------------------------------------------------
 function loadMapAnimations() {
     log("Loading map animations...")
     loadAnimations = false;
@@ -245,10 +256,10 @@ function loadMapAnimations() {
     //debug_printAnimData(curTilesetsAnimData);
 }
 
-//
+//------------------------------------------------------------------
 // Returns the tile animations present in the current tilesets.
 // If neither tileset has animation data it will return undefined.
-//
+//------------------------------------------------------------------
 function getCurrentTileAnimationData() {
     let p_TilesetData = tilesetsData[map.getPrimaryTileset()];
     let s_TilesetData = tilesetsData[map.getSecondaryTileset()];
@@ -392,9 +403,9 @@ function isAnimated(tileId) {
     return curTilesetsAnimData[tileId] != undefined;
 }
 
-//----------------
-// Image creation
-//----------------
+//==================
+//  Image creation
+//==================
 
 function addAnimTileFrames(x, y, data) {
     let tileId = data.tile.tileId;
@@ -457,15 +468,15 @@ function addStaticTileImage(x, y, data) {
     map.addTileImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
 }
 
-//
+//--------------------------------------------------------------------------------------------------------
 // Take a map coordinate and tile position and return the coordinate to start drawing that tile's image
-//
+//--------------------------------------------------------------------------------------------------------
 function x_mapToTile(x, tilePos) { return x * metatileWidth + ((tilePos % metatileTileWidth) * tileWidth); }
 function y_mapToTile(y, tilePos) { return y * metatileHeight + (Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight); }
 
-//
+//----------------------------------------------------------------
 // Calculate the region of the image each tile should load from.
-//
+//----------------------------------------------------------------
 function getTileImageDimensions(tiles) {
     let dimensions = [];
     for (let layer = 0; layer < maxMetatileLayer; layer++) {
@@ -547,6 +558,7 @@ function canCombine_Vertical(data, a, b) {
 // It also constructs the full filepaths for each frame and handles removing any objects that are missing properties.
 //
 function buildTilesetsData() {
+    tilesetsData = versionData[2/*map.getGameVersion()*/]; // TODO: Add to API
     // For each tileset
     for (const tilesetName in tilesetsData) {
         if (!verifyTilesetData(tilesetName)) continue;

@@ -6,8 +6,13 @@ export const toggleShortcut = "Ctrl+A";
 export const animateOnLaunch = true;
 export const logPrefix = "ANIM: ";
 
-// Filepaths
-export {tilesetsData} from './animations_emerald.js';
+// Animation data
+import {tilesetsData as em}   from './animations_emerald.js';
+import {tilesetsData as frlg} from './animations_frlg.js';
+//import {tilesetsData as rs}   from './animations_ruby_saph.js';
+export const versionData = [/*rs*/{}, frlg, em];
+
+// Base filepaths
 export const tilesetsPath = "data/tilesets/"
 export const primaryPath = tilesetsPath + "primary/";
 export const secondaryPath = tilesetsPath + "secondary/";
