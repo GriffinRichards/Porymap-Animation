@@ -2,7 +2,6 @@
     Prototype for Porymap animation script.
 
     TODO:
-    - Map switching is still broken
     - Properly remove old overlays
     - Disable animation on the events tab (requires new API functions)
         OR: Allow overlays to be drawn behind events (and map UI)
@@ -661,6 +660,7 @@ function resetAnimation() {
     timer = 0;
     timerMax = calculateTimerMax();
     overlayMap = {};
+    metatileCache = {};
     allStaticOverlays = [];
 }
 
@@ -887,6 +887,7 @@ function y_mapToTile(y, tilePos) { return y * metatileHeight + (Math.floor((tile
 function getMetatileAnimData(metatileId) {
     let metatileData = [];
     let tiles = map.getMetatileTiles(metatileId);
+    if (!tiles) return metatileData;
     let positions = scanTiles(tiles);
 
     // No animating tiles, end early
