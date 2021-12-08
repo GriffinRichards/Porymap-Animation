@@ -3,13 +3,12 @@
 
     TODO:
     - Properly remove old overlays
-    - Convert animation data to JSON
-    - Disable animation on the events tab (requires new API functions)
-        OR: Allow overlays to be drawn behind events (and map UI)
     - Comments and clean-up
     - Fix short flicker when toggling on (static overlays are always drawn
       immediately, instead of waiting for first frame of their animation)
-    - Add RS data
+    - Disable animation on the events tab (requires new API functions)
+        OR: Allow overlays to be drawn behind events (and map UI)
+    - Convert animation data to JSON? (Importing not supported on standard Qt implements)
 
 */
 
@@ -36,6 +35,7 @@ var timer = 0;
 var timerMax = defaultTimerMax;
 var animating = false;
 var animateFuncActive = false;
+var numOverlays = 1;
 
 var tilesetsData;
 
@@ -45,7 +45,6 @@ var tilesetsData;
 // and max overlay used by that map space. This is used to clear the overlays
 // for a space when it's drawn on.
 var overlayRangeMap;
-var numOverlays = 1;
 
 // 3D array
 var overlayMap = {};
@@ -79,9 +78,6 @@ var mapName;
 var mapWidth;
 var mapHeight;
 
-var tilesPerMetatile;
-var maxMetatileLayer;
-
 // Basic tile/metatile size information
 const tileWidth = 8;
 const tileHeight = 8;
@@ -90,6 +86,8 @@ const metatileTileHeight = 2;
 const tilesPerLayer = metatileTileWidth * metatileTileHeight;
 const metatileWidth = tileWidth * metatileTileWidth;
 const metatileHeight = tileHeight * metatileTileHeight;
+var tilesPerMetatile;
+var maxMetatileLayer;
 
 //====================
 //   Main Callbacks
@@ -98,7 +96,7 @@ const metatileHeight = tileHeight * metatileTileHeight;
 export function onProjectOpened(projectPath) {
     root = projectPath + "/";
     tilesPerMetatile = map.getNumTilesInMetatile();
-    maxMetatileLayer = 2; // map.getNumMetatileLayers(); TODO: Get number of layers from API
+    maxMetatileLayer = tilesPerMetatile / tilesPerLayer; // map.getNumMetatileLayers(); TODO: Get number of layers from API
     map.registerAction("toggleAnimation", "Toggle map animations", toggleShortcut);
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();

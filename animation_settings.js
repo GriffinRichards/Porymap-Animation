@@ -9,8 +9,8 @@ export const logPrefix = "ANIM: ";
 // Animation data
 import {tilesetsData as em}   from './animations_emerald.js';
 import {tilesetsData as frlg} from './animations_frlg.js';
-//import {tilesetsData as rs}   from './animations_ruby_saph.js';
-export const versionData = [/*rs*/{}, frlg, em];
+import {tilesetsData as rs}   from './animations_ruby_saph.js';
+export const versionData = [rs, frlg, em];
 
 // Base filepaths
 export const tilesetsPath = "data/tilesets/"
