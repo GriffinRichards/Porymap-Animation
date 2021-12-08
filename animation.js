@@ -3,6 +3,8 @@
 
     TODO:
     - Properly remove old overlays
+    - Images should be loaded with the palette from the tile, not the png
+    - Convert animation data to JSON
     - Disable animation on the events tab (requires new API functions)
         OR: Allow overlays to be drawn behind events (and map UI)
 
@@ -94,398 +96,13 @@
 */
 
 //====================
-//   Animation Data
-//====================
-
-const tilesetsData = {
-    "gTileset_General": {
-        folder: "general/anim",
-        primary: true,
-        tileAnimations: {
-            432: { // (0x1B0)
-                folder: "water",
-                frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
-                numTiles: 30,
-                interval: 16,
-                imageWidth: 16,
-            },
-            464: { // (0x1D0)
-                folder: "sand_water_edge",
-                frames: ["0", "1", "2", "3", "4", "5", "6"],
-                numTiles: 10,
-                interval: 16,
-                imageWidth: 16,
-            },
-            480: { // (0x1E0)
-                folder: "land_water_edge",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 10,
-                interval: 16,
-                imageWidth: 80,
-
-            },
-            496: { // (0x1F0)
-                folder: "waterfall",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 6,
-                interval: 16,
-                imageWidth: 8,
-            },
-            508: { // (0x1FC)
-                folder: "flower",
-                frames: ["0", "1", "0", "2"],
-                numTiles: 4,
-                interval: 16,
-                imageWidth: 16,
-            },
-        }
-    },
-    "gTileset_Building": {
-        folder: "building/anim",
-        primary: true,
-        tileAnimations: {
-            496: { // This is an unused version of the TV that's always on
-                folder: "tv_turned_on",
-                frames: ["0", "1"],
-                numTiles: 4,
-                interval: 8,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_Rustboro": {
-        folder: "rustboro/anim",
-        primary: false,
-        tileAnimations: {
-            640: { // TODO: Maybe condense copy lists into a single numCopies and offset(s) field
-                folder: "windy_water/",
-                frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
-                copies: [{tileId: 644, frameOffset: 1},
-                         {tileId: 648, frameOffset: 2},
-                         {tileId: 652, frameOffset: 3},
-                         {tileId: 656, frameOffset: 4},
-                         {tileId: 660, frameOffset: 5},
-                         {tileId: 664, frameOffset: 6},
-                         {tileId: 668, frameOffset: 7},
-                ],
-                numTiles: 4,
-                interval: 8,
-                imageWidth: 16,
-            },
-            960: { // 0x3C0
-                folder: "fountain",
-                frames: ["0", "1"],
-                numTiles: 4,
-                interval: 8,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_Dewford": {
-        folder: "dewford/anim",
-        primary: false,
-        tileAnimations: {
-            682: { // Unused in vanilla
-                folder: "flag",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 6,
-                interval: 8,
-                imageWidth: 24,
-            },
-        },
-    },
-    "gTileset_Slateport": {
-        folder: "slateport/anim",
-        primary: false,
-        tileAnimations: {
-            736: {
-                folder: "balloons",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 4,
-                interval: 16,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_Mauville": {
-        folder: "mauville/anim",
-        primary: false,
-        tileAnimations: {
-            608: {
-                folder: "flower_1",
-                frames: ["0", "0", "1", "2",
-                         "3", "3", "3", "3",
-                         "3", "3", "2", "1",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4"],
-                copies: [{tileId: 612, frameOffset: 1},
-                         {tileId: 616, frameOffset: 2},
-                         {tileId: 620, frameOffset: 3},
-                         {tileId: 624, frameOffset: 4},
-                         {tileId: 628, frameOffset: 5},
-                         {tileId: 632, frameOffset: 6},
-                         {tileId: 636, frameOffset: 7},
-                ],
-                numTiles: 4,
-                interval: 8,
-                imageWidth: 16,
-            },
-            640: {
-                folder: "flower_2",
-                frames: ["0", "0", "1", "2",
-                         "3", "3", "3", "3",
-                         "3", "3", "2", "1",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4",
-                         "0", "0", "4", "4"],
-                copies: [{tileId: 644, frameOffset: 1},
-                         {tileId: 648, frameOffset: 2},
-                         {tileId: 652, frameOffset: 3},
-                         {tileId: 656, frameOffset: 4},
-                         {tileId: 660, frameOffset: 5},
-                         {tileId: 664, frameOffset: 6},
-                         {tileId: 668, frameOffset: 7},
-                ],
-                numTiles: 4,
-                interval: 8,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_Lavaridge": {
-        folder: "lavaridge/anim",
-        primary: false,
-        tileAnimations: {
-            800: {
-                folder: "steam",
-                frames: ["0", "1", "2", "3"],
-                copies: [{tileId: 804, frameOffset: 2}],
-                numTiles: 4,
-                interval: 16,
-                imageWidth: 16,
-            },
-            672: { // Lavaridge's lava gets its images from the cave tileset
-                folder: "data/tilesets/secondary/cave/anim/lava",
-                externalFolder: true,
-                frames: ["0", "1", "2", "3"],
-                numTiles: 4,
-                interval: 16,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_EverGrande": {
-        folder: "ever_grande/anim",
-        primary: false,
-        tileAnimations: {
-            736: { // TODO: Handle alternate flower color?
-                folder: "flowers",
-                frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
-                copies: [{tileId: 740, frameOffset: 1},
-                         {tileId: 744, frameOffset: 2},
-                         {tileId: 748, frameOffset: 3},
-                         {tileId: 752, frameOffset: 4},
-                         {tileId: 756, frameOffset: 5},
-                         {tileId: 760, frameOffset: 6},
-                         {tileId: 764, frameOffset: 7},
-                ],
-                numTiles: 4,
-                interval: 8,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_Pacifidlog": {
-        folder: "pacifidlog/anim",
-        primary: false,
-        tileAnimations: {
-            976: {
-                folder: "log_bridges",
-                frames: ["0", "1", "2"],
-                numTiles: 30,
-                interval: 16,
-                imageWidth: 16,
-            },
-            1008: {
-                folder: "water_currents",
-                frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
-                numTiles: 8,
-                interval: 16,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_Sootopolis": {
-        folder: "sootopolis/anim",
-        primary: false,
-        tileAnimations: {
-            752: {
-                folder: "stormy_water",
-                frames: ["0_kyogre", "1_kyogre", "2_kyogre", "3_kyogre", "4_kyogre", "5_kyogre", "6_kyogre", "7_kyogre"],
-                numTiles: 48,
-                interval: 16,
-                imageWidth: 64,
-            },
-            800: {
-                folder: "stormy_water",
-                frames: ["0_groudon", "1_groudon", "2_groudon", "3_groudon", "4_groudon", "5_groudon", "6_groudon", "7_groudon"],
-                numTiles: 48,
-                interval: 16,
-                imageWidth: 64,
-            },
-        },
-    },
-    "gTileset_BattleFrontierOutsideWest": {
-        folder: "battle_frontier_outside_west/anim",
-        primary: false,
-        tileAnimations: {
-            730: {
-                folder: "flag",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 6,
-                interval: 8,
-                imageWidth: 24,
-            },
-        },
-    },
-    "gTileset_BattleFrontierOutsideEast": {
-        folder: "battle_frontier_outside_east/anim",
-        primary: false,
-        tileAnimations: {
-            730: {
-                folder: "flag",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 6,
-                interval: 8,
-                imageWidth: 24,
-            },
-        },
-    },
-    "gTileset_Underwater": {
-        folder: "underwater/anim",
-        primary: false,
-        tileAnimations: {
-            1008: {
-                folder: "seaweed",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 4,
-                interval: 16,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_SootopolisGym": {
-        folder: "sootopolis_gym/anim",
-        primary: false,
-        tileAnimations: {
-            976: {
-                folder: "front_waterfall",
-                frames: ["0", "1", "2"],
-                numTiles: 20,
-                interval: 8,
-                imageWidth: 32,
-            },
-            1008: { // Unused in vanilla
-                folder: "side_waterfall",
-                frames: ["0", "1", "2"],
-                numTiles: 12,
-                interval: 8,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_Cave": {
-        folder: "cave/anim",
-        primary: false,
-        tileAnimations: {
-            928: {
-                folder: "lava",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 4,
-                interval: 16,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_EliteFour": {
-        folder: "elite_four/anim",
-        primary: false,
-        tileAnimations: {
-            992: {
-                folder: "floor_light",
-                frames: ["0", "1"],
-                numTiles: 4,
-                interval: 64,
-                imageWidth: 16,
-            },
-            1016: {
-                folder: "wall_lights",
-                frames: ["0", "1", "2", "3"],
-                numTiles: 1,
-                interval: 8,
-                imageWidth: 8,
-            },
-        },
-    },
-    "gTileset_MauvilleGym": {
-        folder: "mauville_gym/anim",
-        primary: false,
-        tileAnimations: {
-            656: {
-                folder: "electric_gates",
-                frames: ["0", "1"],
-                numTiles: 16,
-                interval: 2,
-                imageWidth: 16,
-            },
-        },
-    },
-    "gTileset_BikeShop": {
-        folder: "bike_shop/anim",
-        primary: false,
-        tileAnimations: {
-            1008: {
-                folder: "blinking_lights",
-                frames: ["0", "1"],
-                numTiles: 9,
-                interval: 4,
-                imageWidth: 24,
-            },
-        },
-    },
-    "gTileset_BattlePyramid": {
-        folder: "battle_pyramid/anim",
-        primary: false,
-        tileAnimations: {
-            647: {
-                folder: "statue_shadow",
-                frames: ["0", "1", "2"],
-                numTiles: 8,
-                interval: 8,
-                imageWidth: 16,
-            },
-            663: {
-                folder: "torch",
-                frames: ["0", "1", "2"],
-                numTiles: 8,
-                interval: 8,
-                imageWidth: 16,
-            },
-        },
-    },
-};
-
-
-//====================
 //     Settings
 //====================
 
-const toggleShortcut = "Ctrl+A"
+// Animation data file
+import {tilesetsData} from './animations_emerald.js';
+
+const toggleShortcut = "Ctrl+A";
 const animateOnLaunch = true;
 const logPrefix = "ANIM: ";
 
@@ -673,7 +290,7 @@ function updateOverlays(timer) {
     // For each timing interval of the current animations
     for (const interval in overlayMap) {
         if (timer % interval == 0) {
-            benchmark_init();
+            //benchmark_init();
             let overlayLists = overlayMap[interval];
             // For each tile animating at this interval
             for (let j = 0; j < overlayLists.length; j++) {
@@ -684,7 +301,7 @@ function updateOverlays(timer) {
                 map.hideOverlay(overlayList[prevFrame]);
                 map.showOverlay(overlayList[curFrame]);
             }
-            benchmark_log("animation");
+            //benchmark_log("animation");
         }
     }
 }
@@ -712,8 +329,10 @@ function loadMapAnimations() {
     loadAnimations = false;
 
     curTilesetsAnimData = getCurrentTileAnimationData();
-    if (curTilesetsAnimData == undefined)
-        return; // Neither of the current tilesets have animations
+    if (curTilesetsAnimData == undefined) {
+        log("No animations on this map.");
+        return;
+    }
 
     overlayRangeMap = {};
     for (let x = 0; x < mapWidth; x++) {
@@ -1107,6 +726,10 @@ function warn(message) {
     map.warn(logPrefix + message);
 }
 
+function error(message) {
+    map.error(logPrefix + message);
+}
+
 function verifyTilesetData(tilesetName) {
     let tilesetData = tilesetsData[tilesetName];
     if (tilesetData == undefined)
@@ -1116,7 +739,7 @@ function verifyTilesetData(tilesetName) {
     let properties = ["tileAnimations", "folder"]; // "primary" is not required
     for (let i = 0; i < properties.length; i++) {
         if (!tilesetData.hasOwnProperty(properties[i])) {
-            map.error(logPrefix + tilesetName + " is missing property '" + properties[i] + "'");
+            error(tilesetName + " is missing property '" + properties[i] + "'");
             valid = false;
         }
     }
@@ -1135,7 +758,7 @@ function verifyTileAnimData(tileId, tilesetName) {
     let properties = ["numTiles", "frames", "interval", "folder", "imageWidth"];
     for (let i = 0; i < properties.length; i++) {
         if (!anim.hasOwnProperty(properties[i])) {
-            map.error(logPrefix + "Animation for tile " + tileId + " of " + tilesetName + " is missing property '" + properties[i] + "'");
+            error("Animation for tile " + tileId + " of " + tilesetName + " is missing property '" + properties[i] + "'");
             valid = false;
         }
     }
