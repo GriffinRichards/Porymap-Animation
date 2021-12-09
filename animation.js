@@ -3,6 +3,8 @@
 
     TODO:
     - Properly remove old overlays
+    - Test for interrupting animate loop. Switch to invoked function queue?
+    - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
     - Comments and clean-up
     - Fix short flicker when toggling on (static overlays are always drawn
       immediately, instead of waiting for first frame of their animation)
@@ -117,6 +119,15 @@ export function onMapOpened(newMapName) {
     mapWidth = map.getWidth();
     mapHeight = map.getHeight();
     loadAnimations = true;
+}
+
+export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
+    mapWidth = newWidth;
+    mapHeight = newHeight;
+    if (newWidth < oldWidth || newHeight < oldHeight) {
+        map.clearOverlay();
+        loadAnimations = true;
+    }
 }
 
 // TODO (On API's end): onBlockChanged is not triggered by Undo/Redo
@@ -597,12 +608,8 @@ function buildTilesetsData() {
             let tileId = tileIds[i];
             if (!verifyTileAnimData(tileId, tilesetName)) continue;
 
-            // Construct filepaths for animation frames
-            if (anims[tileId].externalFolder)
-                var animPath = root + anims[tileId].folder + "/";
-            else animPath = tilesetPath + anims[tileId].folder + "/";
-            anims[tileId].filepath = animPath;
-            let numFrames = anims[tileId].frames.length;
+            // Set filepath for animation frames
+            anims[tileId].filepath = (anims[tileId].externalFolder ? root : tilesetPath) + anims[tileId].folder + "/";
             anims[tileId].identifier = identifier++;
 
             // Copy first tile animation for the remaining tiles
@@ -616,6 +623,7 @@ function buildTilesetsData() {
 
             // Create copies of animation tiles with offset frame timings (if any)
             if (!anims[tileId].copies) continue;
+            let numFrames = anims[tileId].frames.length;
             for (let j = 0; j < anims[tileId].copies.length; j++) {
                 let copyData = anims[tileId].copies[j];
                 let offset = Math.abs(numFrames - copyData.frameOffset);
