@@ -99,8 +99,9 @@ var maxMetatileLayer;
 export function onProjectOpened(projectPath) {
     root = projectPath + "/";
     tilesPerMetatile = map.getNumTilesInMetatile();
-    maxMetatileLayer = tilesPerMetatile / tilesPerLayer; // map.getNumMetatileLayers(); TODO: Get number of layers from API
+    maxMetatileLayer = map.getNumMetatileLayers();
     map.registerAction("toggleAnimation", "Toggle map animations", toggleShortcut);
+    map.registerAction("reloadAnimation", "Reload map animations")
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
 }
@@ -195,6 +196,14 @@ function resetAnimation() {
     overlayMap = {};
     metatileCache = {};
     allStaticOverlays = [];
+}
+
+export function reloadAnimation() {
+    animating = false;
+    resetAnimation();
+    buildTilesetsData();
+    loadAnimations = true;
+    animating = animateOnLaunch;
 }
 
 //
@@ -566,7 +575,7 @@ function canCombine_Vertical(data, a, b) {
 // It also constructs the full filepaths for each frame and handles removing any objects that are missing properties.
 //
 function buildTilesetsData() {
-    tilesetsData = versionData[2/*map.getGameVersion()*/]; // TODO: Add to API
+    tilesetsData = JSON.parse(JSON.stringify(versionData[map.getBaseGameVersion()]));
     // For each tileset
     let identifier = 0;
     for (const tilesetName in tilesetsData) {
