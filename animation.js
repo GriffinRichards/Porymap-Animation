@@ -3,6 +3,8 @@
 
     TODO:
     - Properly remove old overlays
+    - Move onMapResized to setDimensions
+    - Add forceRedraw to overlay changes
     - Test for interrupting animate loop. Switch to invoked function queue?
     - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
     - Comments and clean-up
@@ -114,7 +116,7 @@ export function onProjectOpened(projectPath) {
 }*/
 
 export function onMapOpened(newMapName) {
-    map.clearOverlay();
+    map.clearOverlays();
     mapName = newMapName;
     mapWidth = map.getWidth();
     mapHeight = map.getHeight();
@@ -125,7 +127,7 @@ export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
     mapWidth = newWidth;
     mapHeight = newHeight;
     if (newWidth < oldWidth || newHeight < oldHeight) {
-        map.clearOverlay();
+        map.clearOverlays();
         loadAnimations = true;
     }
 }
@@ -146,7 +148,7 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
 }
 
 export function onTilesetUpdated(tilesetName) {
-    map.clearOverlay();
+    map.clearOverlays();
     loadAnimations = true;
 }
 
@@ -162,7 +164,7 @@ export function animate() {
     if (!animating) {
         // Stop animation
         animateFuncActive = false;
-        map.hideOverlay();
+        map.hideOverlays();
         return;
     }
     if (loadAnimations) {
@@ -200,7 +202,7 @@ function tryStartAnimation() {
 }
 
 function resetAnimation() {
-    map.clearOverlay();
+    map.clearOverlays();
     numOverlays = 1;
     timer = 0;
     timerMax = calculateTimerMax();
