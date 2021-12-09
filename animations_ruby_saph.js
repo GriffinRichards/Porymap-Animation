@@ -92,7 +92,7 @@ export const tilesetsData = {
         folder: "mauville/anim",
         primary: false,
         tileAnimations: {
-            608: { // TODO: Fix
+            608: {
                 folder: "0", // "flower_1",
                 frames: ["0", "0", "1", "2",
                          "3", "3", "3", "3",

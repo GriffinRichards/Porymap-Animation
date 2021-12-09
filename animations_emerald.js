@@ -190,7 +190,7 @@ export const tilesetsData = {
         folder: "ever_grande/anim",
         primary: false,
         tileAnimations: {
-            736: { // TODO: Handle alternate flower color?
+            736: {
                 folder: "flowers",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
                 copies: [{tileId: 740, frameOffset: 1},

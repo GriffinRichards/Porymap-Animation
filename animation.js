@@ -19,12 +19,15 @@
 import {
     toggleShortcut,
     animateOnLaunch,
-    logPrefix,
     versionData,
     tilesetsPath,
     primaryPath,
     secondaryPath,
     animFileExtension,
+    logPrefix,
+    logDebugInfo,
+    logUsageInfo,
+    logBenchmarkInfo,
     refreshTime,
     defaultTimerMax,
     mapExceptions
@@ -154,8 +157,11 @@ export function animate() {
         resetAnimation();
         benchmark_init();
         loadMapAnimations();
-        benchmark_log("build animations");
-        log("Took " + (numOverlays - 1) + " overlays");
+        benchmark_log("Loading animations");
+        if (logUsageInfo) {
+            log("Overlays used: " + (numOverlays - 1));
+            debug_printOverlays();
+        }
     }
     updateOverlays(timer);
     timer++;
@@ -200,7 +206,7 @@ function updateOverlays(timer) {
     // For each timing interval of the current animations
     for (const interval in overlayMap) {
         if (timer % interval == 0) {
-            //benchmark_init();
+            benchmark_init();
             let overlayLists = overlayMap[interval];
             // For each tile animating at this interval
             for (let j = 0; j < overlayLists.length; j++) {
@@ -211,7 +217,7 @@ function updateOverlays(timer) {
                 map.hideOverlay(overlayList[prevFrame]);
                 map.showOverlay(overlayList[curFrame]);
             }
-            //benchmark_log("animation");
+            benchmark_log("Animating interval " + interval);
         }
     }
 }
@@ -243,6 +249,7 @@ function loadMapAnimations() {
         log("No animations on this map.");
         return;
     }
+    debug_printAnimData(curTilesetsAnimData);
 
     overlayRangeMap = {};
     for (let x = 0; x < mapWidth; x++) {
@@ -252,7 +259,6 @@ function loadMapAnimations() {
     }
 
     log("Map animations loaded.");
-    //debug_printAnimData(curTilesetsAnimData);
 }
 
 //------------------------------------------------------------------
@@ -339,6 +345,7 @@ function tryAddAnimation(x, y) {
 
     // Save end of overlay range for this map space
     overlayRangeMap[x][y].end = numOverlays;
+    if (logUsageInfo) log("Using overlays " + overlayRangeMap[x][y].start + "-" + (overlayRangeMap[x][y].end - 1) + " at " + x + "," + y);
 }
 
 function getMetatileAnimData(metatileId) {
@@ -368,7 +375,7 @@ function getMetatileAnimData(metatileId) {
             let tile = tiles[tilePos];
             let dim = dimensions[tilePos];
             if (!dim) continue;
-            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tile, w: dim.w, h: dim.h, imageOffset: dim.offset, id: dim.id});
+            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tile, w: dim.w, h: dim.h, imageOffset: dim.offset});
         }
     }
     return metatileData;
@@ -458,7 +465,8 @@ function addAnimTileFrames(x, y, data) {
 
 function addAnimTileImage(x, y, data, frame, overlayId) {
     let tile = data.tile;
-    let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
+    let anim = curTilesetsAnimData[tile.tileId];
+    let filepath = anim.filepath + anim.frames[frame] + animFileExtension;
     map.createImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
 }
 
@@ -490,7 +498,7 @@ function getTileImageDimensions(tiles) {
             if (!isAnimated(tile.tileId)) continue;
             let anim = curTilesetsAnimData[tile.tileId];
             posData[i] = {x: getImageDataX(anim), y: getImageDataY(anim), id: anim.identifier, tile: tile};
-            dimensions[tilePos] = {w: tileWidth, h: tileHeight, offset: (posData[i].x + (posData[i].y * anim.imageWidth)), id: anim.identifier};
+            dimensions[tilePos] = {w: tileWidth, h: tileHeight, offset: (posData[i].x + (posData[i].y * anim.imageWidth))};
         }
 
         // Adjacent sequential positions from the same animations can share an image.
@@ -560,6 +568,7 @@ function canCombine_Vertical(data, a, b) {
 function buildTilesetsData() {
     tilesetsData = versionData[2/*map.getGameVersion()*/]; // TODO: Add to API
     // For each tileset
+    let identifier = 0;
     for (const tilesetName in tilesetsData) {
         if (!verifyTilesetData(tilesetName)) continue;
 
@@ -575,7 +584,6 @@ function buildTilesetsData() {
         }
 
         // For each animation start tile
-        let identifier = 0;
         for (let i = 0; i < tileIds.length; i++) {
             let tileId = tileIds[i];
             if (!verifyTileAnimData(tileId, tilesetName)) continue;
@@ -584,10 +592,8 @@ function buildTilesetsData() {
             if (anims[tileId].externalFolder)
                 var animPath = root + anims[tileId].folder + "/";
             else animPath = tilesetPath + anims[tileId].folder + "/";
-            anims[tileId].filepaths = [];
+            anims[tileId].filepath = animPath;
             let numFrames = anims[tileId].frames.length;
-            for (let frame = 0; frame < numFrames; frame++)
-                anims[tileId].filepaths[frame] = animPath + anims[tileId].frames[frame] + animFileExtension;
             anims[tileId].identifier = identifier++;
 
             // Copy first tile animation for the remaining tiles
@@ -605,10 +611,10 @@ function buildTilesetsData() {
                 let copyData = anims[tileId].copies[j];
                 let offset = Math.abs(numFrames - copyData.frameOffset);
 
-                // Shift frame filepaths
-                let copyFilepaths = [];
+                // Shift frames for offset copies
+                let copyFrames = [];
                 for (let frame = 0; frame < numFrames; frame++)
-                    copyFilepaths[frame] = anims[tileId].filepaths[(frame + offset) % numFrames];
+                    copyFrames[frame] = anims[tileId].frames[(frame + offset) % numFrames];
 
                 // Copy all tiles for offset animation
                 let copyTileIdInt = parseInt(copyData.tileId);
@@ -616,10 +622,9 @@ function buildTilesetsData() {
                     let nextTileId = copyTileIdInt + k;
                     anims[nextTileId] = Object.assign({}, anims[tileId]);
                     anims[nextTileId].index = k;
-                    anims[nextTileId].filepaths = copyFilepaths;
-                    anims[nextTileId].identifier = identifier;
+                    anims[nextTileId].frames = copyFrames;
+                    anims[nextTileId].identifier = identifier++;
                 }
-                identifier++;
             }
         }
     }
@@ -679,6 +684,7 @@ function verifyTileAnimData(tileId, tilesetName) {
 }
 
 function debug_printAnimDataByTileset() {
+    if (!logDebugInfo) return;
     for (var tilesetName in tilesetsData) {
         map.log(tilesetName);
         let anims = tilesetsData[tilesetName].tileAnimations;
@@ -687,11 +693,24 @@ function debug_printAnimDataByTileset() {
 }
 
 function debug_printAnimData(anims) {
+    if (!logDebugInfo) return;
     for (var tileId in anims) {
-        map.log(tileId);
+        log(tileId);
         let anim = anims[tileId];
         for (var property in anim) {
-            map.log(property + ": " + anim[property]);
+            log(property + ": " + anim[property]);
+        }
+        log("");
+    }
+}
+
+function debug_printOverlays() {
+    if (!logUsageInfo) return;
+    for (const interval in overlayMap) {
+        log("Overlays animating at interval of " + interval + ":");
+        let overlayLists = overlayMap[interval];
+        for (let j = 0; j < overlayLists.length; j++) {
+            log(overlayLists[j]);
         }
     }
 }
@@ -700,21 +719,25 @@ var benchmark;
 var runningTotal = 0;
 
 function benchmark_init() {
+    if (!logBenchmarkInfo) return;
     benchmark = new Date().getTime();
 }
 
 function benchmark_add() {
+    if (!logBenchmarkInfo) return;
     let cur = new Date().getTime();
     runningTotal += cur - benchmark;
     benchmark = cur;
 }
 
 function benchmark_log(message) {
+    if (!logBenchmarkInfo) return;
     let end = new Date().getTime();
     log(message + " time: " + (end - benchmark));
     benchmark = end;
 }
 
 function benchmark_total(message) {
+    if (!logBenchmarkInfo) return;
     log(message + " time: " + runningTotal);
 }

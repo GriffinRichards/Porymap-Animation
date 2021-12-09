@@ -4,7 +4,6 @@
 
 export const toggleShortcut = "Ctrl+A";
 export const animateOnLaunch = true;
-export const logPrefix = "ANIM: ";
 
 // Animation data
 import {tilesetsData as em}   from './animations_emerald.js';
@@ -17,6 +16,14 @@ export const tilesetsPath = "data/tilesets/"
 export const primaryPath = tilesetsPath + "primary/";
 export const secondaryPath = tilesetsPath + "secondary/";
 export const animFileExtension = ".png";
+
+// Logging
+ // Note that setting the logInfo data below to true will
+ // impact performance, only turn them on if you need to.
+export const logPrefix = "ANIM: ";
+export const logUsageInfo = false;
+export const logDebugInfo = false;
+export const logBenchmarkInfo = false;
 
 // Timing
  // There are 1000ms in a second, and the GBA's refresh rate is ~59.73 frames per second.
