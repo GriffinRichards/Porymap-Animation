@@ -573,8 +573,7 @@ function addAnimTileFrames(x, y, data) {
 
 function addAnimTileImage(x, y, data, frame, overlayId) {
     let tile = data.tile;
-    let anim = curTilesetsAnimData[tile.tileId];
-    let filepath = anim.filepath + anim.frames[frame] + animFileExtension;
+    let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
     map.createImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
 }
 
@@ -695,39 +694,44 @@ function buildTilesetsData() {
         for (let i = 0; i < tileIds.length; i++) {
             let tileId = tileIds[i];
             if (!verifyTileAnimData(tileId, tilesetName)) continue;
+            let anim = anims[tileId];
 
-            // Set filepath for animation frames
-            anims[tileId].filepath = (anims[tileId].externalFolder ? root : tilesetPath) + anims[tileId].folder + "/";
-            anims[tileId].identifier = identifier++;
+            // Set filepaths for animation frames
+            anim.filepaths = [];
+            let numFrames = anim.frames.length;
+            let animPath = (anim.externalFolder ? root : tilesetPath) + anim.folder + "/";
+            for (let i = 0; i < numFrames; i++)
+                anim.filepaths[i] = animPath + anim.frames[i] + animFileExtension;
+            anim.filepath = animPath; // For debug only
 
             // Copy first tile animation for the remaining tiles
+            anim.identifier = identifier++;
             let tileIdInt = parseInt(tileId);
-            for (let j = 1; j < anims[tileId].numTiles; j++) {
+            for (let j = 1; j < anim.numTiles; j++) {
                 let nextTileId = tileIdInt + j;
                 if (!verifyAnimCopy(anims, nextTileId, tileId, tilesetName)) break;
-                anims[nextTileId] = Object.assign({}, anims[tileId]);
+                anims[nextTileId] = Object.assign({}, anim);
                 anims[nextTileId].index = j;
             }
-            anims[tileId].index = 0;
+            anim.index = 0;
 
             // Create copies of animation tiles with offset frame timings (if any)
-            if (!anims[tileId].copies) continue;
-            let numFrames = anims[tileId].frames.length;
-            for (let j = 0; j < anims[tileId].copies.length; j++) {
-                let copyData = anims[tileId].copies[j];
+            if (!anim.copies) continue;
+            for (let j = 0; j < anim.copies.length; j++) {
+                let copyData = anim.copies[j];
                 let offset = Math.abs(numFrames - copyData.frameOffset);
 
                 // Shift frames for offset copies
                 let copyFrames = [];
                 for (let frame = 0; frame < numFrames; frame++)
-                    copyFrames[frame] = anims[tileId].frames[(frame + offset) % numFrames];
+                    copyFrames[frame] = anim.frames[(frame + offset) % numFrames];
 
                 // Copy all tiles for offset animation
                 let copyTileIdInt = parseInt(copyData.tileId);
-                for (let k = 0; k < anims[tileId].numTiles; k++) {
+                for (let k = 0; k < anim.numTiles; k++) {
                     let nextTileId = copyTileIdInt + k;
                     if (!verifyAnimCopy(anims, nextTileId, copyTileIdInt, tilesetName)) break;
-                    anims[nextTileId] = Object.assign({}, anims[tileId]);
+                    anims[nextTileId] = Object.assign({}, anim);
                     anims[nextTileId].index = k;
                     anims[nextTileId].frames = copyFrames;
                     anims[nextTileId].identifier = identifier++;
@@ -836,7 +840,10 @@ function debug_printAnimData(anims) {
         log(tileId);
         let anim = anims[tileId];
         for (var property in anim) {
-            log(property + ": " + anim[property]);
+            // Pre-computed filepath list is enormous, skip
+            // printing it and use base filepath property instead
+            if (property != "filepaths")
+                log(property + ": " + anim[property]);
         }
         log("");
     }
