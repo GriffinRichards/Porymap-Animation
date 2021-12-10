@@ -3,13 +3,11 @@
 
     TODO:
     - Properly remove old overlays
-    - Move onMapResized to setDimensions
     - Add forceRedraw to overlay changes
     - Test for interrupting animate loop. Switch to invoked function queue?
     - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
+    - Animate border?
     - Comments and clean-up
-    - Fix short flicker when toggling on (static overlays are always drawn
-      immediately, instead of waiting for first frame of their animation)
     - Disable animation on the events tab (requires new API functions)
         OR: Allow overlays to be drawn behind events (and map UI)
     - Convert animation data to JSON? (Importing not supported on standard Qt implements)
@@ -54,10 +52,16 @@ var tilesetsData;
 var overlayRangeMap;
 
 // 3D array
-var overlayMap = {};
+var animOverlayMap = {};
 
 // Array of all the active static overlays. Used to re-show them after toggling animation.
 var allStaticOverlays = [];
+
+// This object maps static overlays to the intervals of the animation they're associated with.
+// Each property is an interval, and each value is an array of overlay ids. The array below it
+// is for temporarily tracking which intervals are being used in order to build this object.
+var staticOverlayMap = {};
+var curAnimIntervals = [];
 
 // Object for caching data about how to build an animation for a given metatile so
 // that when it's encountered again the animation can be created faster.
@@ -132,9 +136,8 @@ export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
     }
 }
 
-// TODO (On API's end): onBlockChanged is not triggered by Undo/Redo
 export function onBlockChanged(x, y, prevBlock, newBlock) {
-    if (!animating || newBlock.metatileId == prevBlock.metatileId)
+    if (newBlock.metatileId == prevBlock.metatileId)
         return;
 
     // Erase old animation
@@ -164,7 +167,7 @@ export function animate() {
     if (!animating) {
         // Stop animation
         animateFuncActive = false;
-        map.hideOverlays();
+        hideOverlays();
         return;
     }
     if (loadAnimations) {
@@ -194,11 +197,15 @@ function tryStartAnimation() {
     // Only call animation loop if it's not already running.
     if (!animateFuncActive) {
         animateFuncActive = true;
+        timer = 0;
         animate();
     }
-    // Show static overlays
-    for (let i = 0; i < allStaticOverlays.length; i++)
-        map.showOverlay(allStaticOverlays[i]);
+}
+
+function hideOverlays() {
+    map.hideOverlays();
+    for (const interval in staticOverlayMap)
+        staticOverlayMap[interval].hidden = true;
 }
 
 function resetAnimation() {
@@ -206,7 +213,8 @@ function resetAnimation() {
     numOverlays = 1;
     timer = 0;
     timerMax = calculateTimerMax();
-    overlayMap = {};
+    animOverlayMap = {};
+    staticOverlayMap = {};
     metatileCache = {};
     allStaticOverlays = [];
 }
@@ -226,18 +234,29 @@ export function reloadAnimation() {
 //
 function updateOverlays(timer) {
     // For each timing interval of the current animations
-    for (const interval in overlayMap) {
+    for (const interval in animOverlayMap) {
         if (timer % interval == 0) {
             benchmark_init();
-            let overlayLists = overlayMap[interval];
-            // For each tile animating at this interval
-            for (let j = 0; j < overlayLists.length; j++) {
-                let overlayList = overlayLists[j];
-                // Hide the previous frame, show the next frame
+            // For each tile animating at this interval,
+            // hide the previous frame and show the next frame
+            let overlayLists = animOverlayMap[interval];
+            for (let i = 0; i < overlayLists.length; i++) {
+                let overlayList = overlayLists[i];
                 let curFrame = (timer / interval) % overlayList.length;
                 let prevFrame = curFrame ? curFrame - 1 : overlayList.length - 1;
                 map.hideOverlay(overlayList[prevFrame]);
                 map.showOverlay(overlayList[curFrame]);
+            }
+
+            // Show all the unrevealed static overlays associated
+            // with animations at this interval
+            if (staticOverlayMap[interval].hidden) {
+                for (let i = 0; i < staticOverlayMap[interval].overlays.length; i++) {
+                    let overlayId = staticOverlayMap[interval].overlays[i];
+                    if (!map.getOverlayVisibility(overlayId))
+                        map.showOverlay(overlayId)
+                }
+                staticOverlayMap[interval].hidden = false;
             }
             benchmark_log("Animating interval " + interval);
         }
@@ -326,6 +345,7 @@ function tryAddAnimation(x, y) {
 
     // Save starting overlay for this map space
     overlayRangeMap[x][y].start = numOverlays;
+    curAnimIntervals = [];
 
     // Add tile images.
     // metatileData is sorted first by layer, then by whether the tile is static or animated.
@@ -361,9 +381,18 @@ function tryAddAnimation(x, y) {
         }
     }
 
-    // Static tile images are hidden on creation and revealed all at once
-    for (let i = 0; i < curStaticOverlays.length; i++)
-        map.showOverlay(curStaticOverlays[i]);
+    // Save static overlays to array for each animation interval this metatile has.
+    // Whichever interval occurs next will reveal the static overlays.
+    // This is done so the neither the animated or static overlays are ever revealed without the other.
+    if (curStaticOverlays.length != 0) {
+        for (let i = 0; i < curAnimIntervals.length; i++) {
+            let interval = curAnimIntervals[i];
+            if (staticOverlayMap[interval] == undefined)
+                staticOverlayMap[interval] = {hidden: true, overlays: []};
+            staticOverlayMap[interval].overlays.push(curStaticOverlays);
+            staticOverlayMap[interval].hidden = true;
+        }
+    }
 
     // Save end of overlay range for this map space
     overlayRangeMap[x][y].end = numOverlays;
@@ -480,9 +509,11 @@ function addAnimTileFrames(x, y, data) {
     numOverlays = baseOverlayId;
 
     // Add overlays to animation map
-    if (overlayMap[interval] == undefined)
-        overlayMap[interval] = [];
-    overlayMap[interval].push(overlays);
+    if (animOverlayMap[interval] == undefined)
+        animOverlayMap[interval] = [];
+    animOverlayMap[interval].push(overlays);
+    if (!curAnimIntervals.includes(interval))
+        curAnimIntervals.push(interval);
 }
 
 function addAnimTileImage(x, y, data, frame, overlayId) {
@@ -725,9 +756,9 @@ function debug_printAnimData(anims) {
 
 function debug_printOverlays() {
     if (!logUsageInfo) return;
-    for (const interval in overlayMap) {
+    for (const interval in animOverlayMap) {
         log("Overlays animating at interval of " + interval + ":");
-        let overlayLists = overlayMap[interval];
+        let overlayLists = animOverlayMap[interval];
         for (let j = 0; j < overlayLists.length; j++) {
             log(overlayLists[j]);
         }
