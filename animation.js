@@ -3,7 +3,6 @@
 
     TODO:
     - Compress copies to a single "numCopies" and "frameOffset" property
-    - Validate that numCopies and numTiles don't overwrite existing animations
     - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
     - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
     - Move top-level UI elements to foreground (above overlays). Namely the cursor tile rectangle, player view rectangle, and grid.
@@ -102,6 +101,8 @@ const metatileWidth = tileWidth * metatileTileWidth;
 const metatileHeight = tileHeight * metatileTileHeight;
 var tilesPerMetatile;
 var maxMetatileLayer;
+var maxPrimaryTile = 512;
+var maxSecondaryTile = maxPrimaryTile + 512; // TODO: Read from project
 
 // For getting least common multiple of animation intervals
 // https://stackoverflow.com/questions/47047682
@@ -261,6 +262,7 @@ function updateOverlays(timer) {
             // For each tile animating at this interval,
             // hide the previous frame and show the next frame
             let overlayLists = animOverlayMap[interval];
+            if (!overlayLists) continue;
             for (let i = 0; i < overlayLists.length; i++) {
                 let overlayList = overlayLists[i];
                 let curFrame = (timer / interval) % overlayList.length;
@@ -271,7 +273,7 @@ function updateOverlays(timer) {
 
             // Show all the unrevealed static overlays associated
             // with animations at this interval
-            if (staticOverlayMap[interval].hidden) {
+            if (staticOverlayMap[interval] && staticOverlayMap[interval].hidden) {
                 for (let i = 0; i < staticOverlayMap[interval].overlays.length; i++) {
                     let overlayId = staticOverlayMap[interval].overlays[i];
                     if (!map.getOverlayVisibility(overlayId))
@@ -320,7 +322,7 @@ function loadMapAnimations() {
 
     curTilesetsAnimData = getCurrentTileAnimationData();
     if (curTilesetsAnimData == undefined) {
-        log("No animations on this map.");
+        log("No animations on this map");
         return;
     }
     debug_printAnimData(curTilesetsAnimData);
@@ -332,7 +334,7 @@ function loadMapAnimations() {
             tryAddAnimation(x, y);
     }
 
-    log("Map animations loaded.");
+    log("Map animations loaded");
 }
 
 //------------------------------------------------------------------
@@ -682,6 +684,7 @@ function buildTilesetsData() {
             let tileIdInt = parseInt(tileId);
             for (let j = 1; j < anims[tileId].numTiles; j++) {
                 let nextTileId = tileIdInt + j;
+                if (!verifyAnimCopy(anims, nextTileId, tileId, tilesetName)) break;
                 anims[nextTileId] = Object.assign({}, anims[tileId]);
                 anims[nextTileId].index = j;
             }
@@ -703,6 +706,7 @@ function buildTilesetsData() {
                 let copyTileIdInt = parseInt(copyData.tileId);
                 for (let k = 0; k < anims[tileId].numTiles; k++) {
                     let nextTileId = copyTileIdInt + k;
+                    if (!verifyAnimCopy(anims, nextTileId, copyTileIdInt, tilesetName)) break;
                     anims[nextTileId] = Object.assign({}, anims[tileId]);
                     anims[nextTileId].index = k;
                     anims[nextTileId].frames = copyFrames;
@@ -754,6 +758,10 @@ function verifyTileAnimData(tileId, tilesetName) {
         return false; // A missing tile animation is invalid but not an error
 
     let valid = true;
+
+    if (!verifyTileLimit(tileId, tilesetName))
+        valid = false;
+
     let properties = ["numTiles", "frames", "interval", "folder", "imageWidth"];
     for (let i = 0; i < properties.length; i++) {
         if (!anim.hasOwnProperty(properties[i])) {
@@ -764,6 +772,33 @@ function verifyTileAnimData(tileId, tilesetName) {
     if (!valid)
         delete tilesetsData[tilesetName].tileAnimations[tileId];
     return valid;
+}
+
+function verifyAnimCopy(anims, targetTileId, srcTileId, tilesetName) {
+    let valid = true;
+    if (anims[targetTileId] != undefined) {
+        error("Animation for tile " + srcTileId + " of " + tilesetName + " would overwrite existing animation at tile " + targetTileId);
+        valid = false;
+    }
+    if (!verifyTileLimit(targetTileId, tilesetName))
+        valid = false;
+    return valid;
+}
+
+function verifyTileLimit(tileId, tilesetName) {
+    let primary = tilesetsData[tilesetName].primary;
+    let maxTile = primary ? maxPrimaryTile : maxSecondaryTile;
+    if (tileId >= maxTile) {
+        let message = ("Tile " + tileId + " exceeds limit of " + (maxTile - 1) + " for " + tilesetName);
+        if (primary) {
+            // Exceeding the limit is 'technically' ok for primary tilesets, but it's probably not intended.
+            warn(message);
+        } else {
+            error(message);
+            return false;
+        }
+    }
+    return true;
 }
 
 function debug_printAnimDataByTileset() {
