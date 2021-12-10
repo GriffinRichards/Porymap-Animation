@@ -2,7 +2,7 @@
     Prototype for Porymap animation script.
 
     TODO:
-    - Properly remove old overlays. Overlays cleared by erasing/redrawing are left unused.
+    - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
     - Add forceRedraw to overlay changes
     - Test for interrupting animate loop. Switch to invoked function queue?
     - More data verification, e.g. interval != 0
@@ -21,6 +21,7 @@
 
 import {
     toggleShortcut,
+    reloadShortcut,
     animateOnLaunch,
     versionData,
     tilesetsPath,
@@ -115,7 +116,7 @@ export function onProjectOpened(projectPath) {
     tilesPerMetatile = map.getNumTilesInMetatile();
     maxMetatileLayer = map.getNumMetatileLayers();
     map.registerAction("toggleAnimation", "Toggle map animations", toggleShortcut);
-    map.registerAction("reloadAnimation", "Reload map animations")
+    map.registerAction("reloadAnimation", "Reload map animations", reloadShortcut)
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
 }

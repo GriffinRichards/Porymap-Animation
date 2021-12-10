@@ -3,6 +3,7 @@
 //====================
 
 export const toggleShortcut = "Ctrl+A";
+export const reloadShortcut = ""; // None by default.
 export const animateOnLaunch = true;
 
 // Animation data
