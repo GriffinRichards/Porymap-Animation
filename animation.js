@@ -2,14 +2,15 @@
     Prototype for Porymap animation script.
 
     TODO:
-    - Properly remove old overlays
+    - Properly remove old overlays. Overlays cleared by erasing/redrawing are left unused.
     - Add forceRedraw to overlay changes
     - Test for interrupting animate loop. Switch to invoked function queue?
+    - More data verification, e.g. interval != 0
+    - Add hex comments to data
     - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
     - Animate border?
     - Comments and clean-up
-    - Disable animation on the events tab (requires new API functions)
-        OR: Allow overlays to be drawn behind events (and map UI)
+    - Move top-level UI elements to foreground (above overlays). Namely the cursor tile rectangle, player view rectangle, and grid.
     - Convert animation data to JSON? (Importing not supported on standard Qt implements)
 
 */
@@ -100,6 +101,11 @@ const metatileHeight = tileHeight * metatileTileHeight;
 var tilesPerMetatile;
 var maxMetatileLayer;
 
+// For getting least common multiple of animation intervals
+// https://stackoverflow.com/questions/47047682
+const gcd = (a, b) => a ? gcd(b % a, a) : b;
+const lcm = (a, b) => a * b / gcd(a, b);
+
 //====================
 //   Main Callbacks
 //====================
@@ -136,6 +142,21 @@ export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
     }
 }
 
+export function onTilesetUpdated(tilesetName) {
+    map.clearOverlays();
+    loadAnimations = true;
+}
+
+export function onTabChanged(oldTab, newTab) {
+    if (!oldTab && newTab) {
+        // Leaving map tab
+        setAnimating(false);
+    } else if (oldTab && !newTab) {
+        // Entering map tab
+        setAnimating(true);
+    }
+}
+
 export function onBlockChanged(x, y, prevBlock, newBlock) {
     if (newBlock.metatileId == prevBlock.metatileId)
         return;
@@ -144,15 +165,9 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
     if (posHasAnimation(x, y)) {
         for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
             map.clearOverlay(i);
-        // TODO: Remove overlay lists from overlayMap
     }
 
     tryAddAnimation(x, y);
-}
-
-export function onTilesetUpdated(tilesetName) {
-    map.clearOverlays();
-    loadAnimations = true;
 }
 
 //=====================
@@ -174,21 +189,26 @@ export function animate() {
         resetAnimation();
         benchmark_init();
         loadMapAnimations();
+        timerMax = calculateTimerMax();
         benchmark_log("Loading animations");
+        if (logDebugInfo) log("Timer max: " + timerMax);
         if (logUsageInfo) {
             log("Overlays used: " + (numOverlays - 1));
             debug_printOverlays();
         }
     }
     updateOverlays(timer);
-    timer++;
-    if (timer > timerMax)
+    if (++timer >= timerMax)
         timer = 0;
     map.setTimeout(animate, refreshTime);
 }
 
 export function toggleAnimation() {
-    animating = !animating;
+    setAnimating(!animating);
+}
+
+function setAnimating(state) {
+    animating = state;
     log("Animations " + (animating ? "on" : "off"));
     if (animating) tryStartAnimation();
 }
@@ -212,7 +232,6 @@ function resetAnimation() {
     map.clearOverlays();
     numOverlays = 1;
     timer = 0;
-    timerMax = calculateTimerMax();
     animOverlayMap = {};
     staticOverlayMap = {};
     metatileCache = {};
@@ -267,9 +286,21 @@ function posHasAnimation(x, y) {
     return overlayRangeMap[x][y].start != undefined;
 }
 
+//----------------------------------------------------------------------------
+// Timer max is the least common multiple of the animation interval * the
+// number of frames for each animation in the currently loaded tilesets.
+//----------------------------------------------------------------------------
 function calculateTimerMax() {
-    // TODO
-    return defaultTimerMax;
+    let fullIntervals = [];
+    for (const tileId in curTilesetsAnimData) {
+        let anim = curTilesetsAnimData[tileId];
+        let fullInterval = anim.frames.length * anim.interval;
+        if (!fullIntervals.includes(fullInterval))
+            fullIntervals.push(fullInterval);
+    }
+    if (fullIntervals.length == 0)
+        return defaultTimerMax;
+    return fullIntervals.reduce(lcm);
 }
 
 //=====================
