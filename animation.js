@@ -2,16 +2,17 @@
     Prototype for Porymap animation script.
 
     TODO:
+    - Compress copies to a single "numCopies" and "frameOffset" property
+    - Validate that numCopies and numTiles don't overwrite existing animations
     - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
-    - Add forceRedraw to overlay changes
-    - Test for interrupting animate loop. Switch to invoked function queue?
-    - More data verification, e.g. interval != 0
-    - Add hex comments to data
     - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
-    - Animate border?
-    - Comments and clean-up
     - Move top-level UI elements to foreground (above overlays). Namely the cursor tile rectangle, player view rectangle, and grid.
-    - Convert animation data to JSON? (Importing not supported on standard Qt implements)
+    - More data verification, e.g. interval != 0
+    - Test for interrupting animate loop. Switch to invoked function queue?
+    - Comments and clean-up
+    - Final general testing
+    - Write README and INSTALL
+    - PR (clean up code, update manual and changelog, write description)
 
 */
 

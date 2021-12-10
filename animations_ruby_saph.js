@@ -64,7 +64,7 @@ export const tilesetsData = {
         folder: "rustboro/anim",
         primary: false,
         tileAnimations: {
-            640: {
+            640: { // (0x280)
                 folder: "0", // "windy_water",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
                 copies: [{tileId: 644, frameOffset: 1},
@@ -79,7 +79,7 @@ export const tilesetsData = {
                 interval: 8,
                 imageWidth: 16,
             },
-            960: { // 0x3C0
+            960: { // (0x3C0)
                 folder: "1", // "fountain",
                 frames: ["0", "1"],
                 numTiles: 4,
@@ -92,7 +92,7 @@ export const tilesetsData = {
         folder: "mauville/anim",
         primary: false,
         tileAnimations: {
-            608: {
+            608: { // (0x260)
                 folder: "0", // "flower_1",
                 frames: ["0", "0", "1", "2",
                          "3", "3", "3", "3",
@@ -114,7 +114,7 @@ export const tilesetsData = {
                 interval: 8,
                 imageWidth: 16,
             },
-            640: {
+            640: { // (0x280)
                 folder: "1", // "flower_2",
                 frames: ["0", "0", "1", "2",
                          "3", "3", "3", "3",
@@ -142,7 +142,7 @@ export const tilesetsData = {
         folder: "lavaridge/anim",
         primary: false,
         tileAnimations: {
-            800: {
+            800: { // (0x320)
                 folder: "", // "steam",
                 frames: ["0", "1", "2", "3"],
                 copies: [{tileId: 804, frameOffset: 2}],
@@ -150,7 +150,7 @@ export const tilesetsData = {
                 interval: 16,
                 imageWidth: 8,
             },
-            672: { // Lavaridge's lava gets its images from the cave tileset
+            672: { // (0x2A0) Lavaridge's lava gets its images from the cave tileset
                 folder: "data/tilesets/secondary/cave/anim",
                 externalFolder: true,
                 frames: ["0", "1", "2", "3"],
@@ -164,7 +164,7 @@ export const tilesetsData = {
         folder: "ever_grande/anim",
         primary: false,
         tileAnimations: {
-            736: {
+            736: { // (0x2E0)
                 folder: "", // "flowers",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
                 copies: [{tileId: 740, frameOffset: 1},
@@ -185,14 +185,14 @@ export const tilesetsData = {
         folder: "pacifidlog/anim",
         primary: false,
         tileAnimations: {
-            976: {
+            976: { // (0x3D0)
                 folder: "0", // "log_bridges",
                 frames: ["0", "1", "2"],
                 numTiles: 30,
                 interval: 16,
                 imageWidth: 8,
             },
-            1008: {
+            1008: { // (0x3F0)
                 folder: "1", // "water_currents",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
                 numTiles: 8,
@@ -205,7 +205,7 @@ export const tilesetsData = {
         folder: "underwater/anim",
         primary: false,
         tileAnimations: {
-            1008: {
+            1008: { // (0x3F0)
                 folder: "", // "seaweed",
                 frames: ["0", "1", "2", "3"],
                 numTiles: 4,
@@ -218,14 +218,14 @@ export const tilesetsData = {
         folder: "sootopolis_gym/anim",
         primary: false,
         tileAnimations: {
-            976: {
+            976: { // (0x3D0)
                 folder: "1", // "front_waterfall",
                 frames: ["0", "1", "2"],
                 numTiles: 20,
                 interval: 8,
                 imageWidth: 32,
             },
-            1008: { // Unused in vanilla
+            1008: { // (0x3F0) Unused in vanilla
                 folder: "0", // "side_waterfall",
                 frames: ["0", "1", "2"],
                 numTiles: 12,
@@ -238,7 +238,7 @@ export const tilesetsData = {
         folder: "cave/anim",
         primary: false,
         tileAnimations: {
-            928: {
+            928: { // (0x3A0)
                 folder: "", // "lava",
                 frames: ["0", "1", "2", "3"],
                 numTiles: 4,
@@ -251,14 +251,14 @@ export const tilesetsData = {
         folder: "elite_four/anim",
         primary: false,
         tileAnimations: {
-            992: {
+            992: { // (0x3E0)
                 folder: "1", // "floor_light",
                 frames: ["0", "1"],
                 numTiles: 4,
                 interval: 64,
                 imageWidth: 16,
             },
-            1016: {
+            1016: { // (0x3F8)
                 folder: "0", // "wall_lights",
                 frames: ["0", "1", "2", "3"],
                 numTiles: 1,
@@ -271,7 +271,7 @@ export const tilesetsData = {
         folder: "mauville_gym/anim",
         primary: false,
         tileAnimations: {
-            656: {
+            656: { // (0x290)
                 folder: "", // "electric_gates",
                 frames: ["0", "1"],
                 numTiles: 16,
@@ -284,7 +284,7 @@ export const tilesetsData = {
         folder: "bike_shop/anim",
         primary: false,
         tileAnimations: {
-            1008: {
+            1008: { // (0x3F0)
                 folder: "", // "blinking_lights",
                 frames: ["0", "1"],
                 numTiles: 9,
