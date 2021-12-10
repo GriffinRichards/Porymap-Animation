@@ -19,9 +19,10 @@ export const secondaryPath = tilesetsPath + "secondary/";
 export const animFileExtension = ".png";
 
 // Logging
+export const logPrefix = "ANIM: ";
+export const logBasicInfo = true;
  // Setting the logInfo data below to true will impact
  // performance. Only turn them on if you need to.
-export const logPrefix = "ANIM: ";
 export const logUsageInfo = false;
 export const logDebugInfo = false;
 export const logBenchmarkInfo = false;

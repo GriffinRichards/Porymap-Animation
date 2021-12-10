@@ -5,6 +5,7 @@
     - Compress copies to a single "numCopies" and "frameOffset" property
     - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
     - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
+      As a backup, perhaps detect map_edit_mode and turn off animation during shift?
     - Move top-level UI elements to foreground (above overlays). Namely the cursor tile rectangle, player view rectangle, and grid.
     - More data verification, e.g. interval != 0
     - Test for interrupting animate loop. Switch to invoked function queue?
@@ -29,6 +30,7 @@ import {
     secondaryPath,
     animFileExtension,
     logPrefix,
+    logBasicInfo,
     logDebugInfo,
     logUsageInfo,
     logBenchmarkInfo,
@@ -91,6 +93,8 @@ var mapName;
 var mapWidth;
 var mapHeight;
 
+var mapViewTab = 0;
+
 // Basic tile/metatile size information
 const tileWidth = 8;
 const tileHeight = 8;
@@ -145,17 +149,33 @@ export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
     }
 }
 
+export function onMapShifted(xDelta, yDelta) {
+    // map.moveOverlays(xDelta * 16, yDelta * 16);
+    // TODO: Wrap overlays
+}
+
 export function onTilesetUpdated(tilesetName) {
     map.clearOverlays();
     loadAnimations = true;
 }
 
-export function onTabChanged(oldTab, newTab) {
+export function onMainTabChanged(oldTab, newTab) {
     if (!oldTab && newTab) {
-        // Leaving map tab
+        // Leaving map tab, save last map view tab
+        mapViewTab = map.getMapViewTab();
+        setAnimating(false);
+    } else if (oldTab && !newTab && !mapViewTab) {
+        // Entering map tab on metatile view
+        setAnimating(true);
+    }
+}
+
+export function onMapViewTabChanged(oldTab, newTab) {
+    if (!oldTab && newTab) {
+        // Leaving metatile view
         setAnimating(false);
     } else if (oldTab && !newTab) {
-        // Entering map tab
+        // Entering metatile view
         setAnimating(true);
     }
 }
@@ -193,7 +213,7 @@ export function animate() {
         benchmark_init();
         loadMapAnimations();
         timerMax = calculateTimerMax();
-        benchmark_log("Loading animations");
+        benchmark_log("Animation load");
         if (logDebugInfo) log("Timer max: " + timerMax);
         if (logUsageInfo) {
             log("Overlays used: " + (numOverlays - 1));
@@ -212,7 +232,7 @@ export function toggleAnimation() {
 
 function setAnimating(state) {
     animating = state;
-    log("Animations " + (animating ? "on" : "off"));
+    if (logBasicInfo) log("Animations " + (animating ? "on" : "off"));
     if (animating) tryStartAnimation();
 }
 
@@ -317,12 +337,12 @@ function calculateTimerMax() {
 // then scans the map and tries to add an animation at each space.
 //-------------------------------------------------------------------
 function loadMapAnimations() {
-    log("Loading map animations...")
+    if (logBasicInfo) log("Loading animations...");
     loadAnimations = false;
 
     curTilesetsAnimData = getCurrentTileAnimationData();
     if (curTilesetsAnimData == undefined) {
-        log("No animations on this map");
+        if (logBasicInfo) log("No animations on this map");
         return;
     }
     debug_printAnimData(curTilesetsAnimData);
@@ -334,7 +354,7 @@ function loadMapAnimations() {
             tryAddAnimation(x, y);
     }
 
-    log("Map animations loaded");
+    if (logBasicInfo) log("Map animations loaded");
 }
 
 //------------------------------------------------------------------
