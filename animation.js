@@ -650,7 +650,7 @@ function getTileImageDimensions(tiles) {
             let tile = tiles[tilePos];
             if (!isAnimated(tile.tileId)) continue;
             let anim = curTilesetsAnimData[tile.tileId];
-            posData[i] = {x: getImageDataX(anim), y: getImageDataY(anim), id: anim.identifier, tile: tile};
+            posData[i] = {x: getImageDataX(anim), y: getImageDataY(anim), filepath: anim.filepath, tile: tile};
             dimensions[tilePos] = {w: tileWidth, h: tileHeight, offset: (posData[i].x + (posData[i].y * anim.imageWidth))};
         }
 
@@ -678,13 +678,13 @@ function getTileImageDimensions(tiles) {
             // If 0 and 2 were already wide positions this creates a square
             dimensions[0 + posOffset].h = tileHeight * 2;
             dimensions[2 + posOffset] = undefined;
-            posData[2] = undefined
+            posData[2] = undefined;
         }
         if (canCombine_Vertical(posData, 1, 3)) {
             // Merge positions 1 and 3 into a single tall position
             dimensions[1 + posOffset].h = tileHeight * 2;
             dimensions[3 + posOffset] = undefined;
-            posData[3] = undefined
+            posData[3] = undefined;
         }
     }
     return dimensions;
@@ -701,7 +701,7 @@ function getImageDataY(anim) { return Math.floor(anim.index * tileWidth / anim.i
 //------------------------------------------------------------------------------------
 function canCombine(data, a, b) {
     return (data[a] && data[b]
-         && data[a].id == data[b].id
+         && data[a].filepath == data[b].filepath
          && data[a].tile.xflip == data[b].tile.xflip
          && data[a].tile.yflip == data[b].tile.yflip
          && data[a].tile.palette == data[b].tile.palette);
@@ -732,7 +732,6 @@ function canCombine_Vertical(data, a, b) {
 function buildTilesetsData() {
     tilesetsData = JSON.parse(JSON.stringify(versionData[map.getBaseGameVersion()]));
     // For each tileset
-    let identifier = 0;
     for (const tilesetName in tilesetsData) {
         if (!verifyTilesetData(tilesetName)) continue;
 
@@ -757,12 +756,11 @@ function buildTilesetsData() {
             anim.filepaths = [];
             let numFrames = anim.frames.length;
             let animPath = (anim.externalFolder ? root : tilesetPath) + anim.folder + "/";
-            for (let i = 0; i < numFrames; i++)
-                anim.filepaths[i] = animPath + anim.frames[i] + animFileExtension;
+            for (let frame = 0; frame < numFrames; frame++)
+                anim.filepaths[frame] = animPath + anim.frames[frame] + animFileExtension;
             anim.filepath = animPath; // For debug only
 
             // Copy first tile animation for the remaining tiles
-            anim.identifier = identifier++;
             let tileIdInt = parseInt(tileId);
             for (let j = 1; j < anim.numTiles; j++) {
                 let nextTileId = tileIdInt + j;
@@ -778,10 +776,14 @@ function buildTilesetsData() {
                 let copyData = anim.copies[j];
                 let offset = Math.abs(numFrames - copyData.frameOffset);
 
-                // Shift frames for offset copies
+                // Shift frames for offset copies (only shifting the filepath really matters)
                 let copyFrames = [];
-                for (let frame = 0; frame < numFrames; frame++)
-                    copyFrames[frame] = anim.frames[(frame + offset) % numFrames];
+                let copyFilepaths = [];
+                for (let frame = 0; frame < numFrames; frame++) {
+                    let shiftedFrame = (frame + offset) % numFrames;
+                    copyFrames[frame] = anim.frames[shiftedFrame];
+                    copyFilepaths[frame] = anim.filepaths[shiftedFrame];
+                }
 
                 // Copy all tiles for offset animation
                 let copyTileIdInt = parseInt(copyData.tileId);
@@ -791,7 +793,7 @@ function buildTilesetsData() {
                     anims[nextTileId] = Object.assign({}, anim);
                     anims[nextTileId].index = k;
                     anims[nextTileId].frames = copyFrames;
-                    anims[nextTileId].identifier = identifier++;
+                    anims[nextTileId].filepaths = copyFilepaths;
                 }
             }
         }
