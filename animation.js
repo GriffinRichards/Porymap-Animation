@@ -1,6 +1,15 @@
 /*
     Prototype for Porymap animation script.
 
+        SECTION LABELS
+    =        Data       =
+    =   Main callbacks  =
+    = Animation running =
+    = Animation loading =
+    =   Image creation  =
+    =   Data building   =
+    =      Logging      =
+
     TODO:
     - Compress copies to a single "numCopies" and "frameOffset" property
     - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
@@ -113,8 +122,9 @@ var maxSecondaryTile = maxPrimaryTile + 512; // TODO: Read from project
 const gcd = (a, b) => a ? gcd(b % a, a) : b;
 const lcm = (a, b) => a * b / gcd(a, b);
 
+
 //====================
-//   Main Callbacks
+//   Main callbacks
 //====================
 
 export function onProjectOpened(projectPath) {
@@ -193,6 +203,7 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
     tryAddAnimation(x, y);
 }
 
+
 //=====================
 //  Animation running
 //=====================
@@ -269,11 +280,11 @@ export function reloadAnimation() {
     animating = animateOnLaunch;
 }
 
-//
+//--------------------------------------------------------------------
 // This function is responsible for visually updating the animation.
 // It does this by selectively hiding and showing overlays that each
 // have different tile frame images on them.
-//
+//--------------------------------------------------------------------
 function updateOverlays(timer) {
     // For each timing interval of the current animations
     for (const interval in animOverlayMap) {
@@ -327,6 +338,7 @@ function calculateTimerMax() {
     return fullIntervals.reduce(lcm);
 }
 
+
 //=====================
 //  Animation loading
 //=====================
@@ -377,10 +389,13 @@ function getCurrentTileAnimationData() {
     return Object.assign(s_TilesetData.tileAnimations, p_TilesetData.tileAnimations); 
 }
 
-//
-//
-//
-//
+//-----------------------------------------------------------------
+// Tries to create a new animation at the given map coordinates.
+// If the metatile at this position has not been encountered yet,
+// examine it to determine if and how it animates, then cache the
+// result. If it should animate, add the images and save which
+// overlays were used.
+//-----------------------------------------------------------------
 function tryAddAnimation(x, y) {
     overlayRangeMap[x][y] = {};
     let curStaticOverlays = [];
@@ -394,7 +409,6 @@ function tryAddAnimation(x, y) {
     // Stop if the metatile has no animating tiles
     if (metatileData.length == 0) return;
 
-    // Get data about the metatile
     let tiles = metatileData.tiles;
     let len = metatileData.length;
 
@@ -438,7 +452,8 @@ function tryAddAnimation(x, y) {
 
     // Save static overlays to array for each animation interval this metatile has.
     // Whichever interval occurs next will reveal the static overlays.
-    // This is done so the neither the animated or static overlays are ever revealed without the other.
+    // This is done so the neither the animated or static overlays are ever revealed
+    // without the other, which could result in visual mistakes like flickering.
     if (curStaticOverlays.length != 0) {
         for (let i = 0; i < curAnimIntervals.length; i++) {
             let interval = curAnimIntervals[i];
@@ -454,6 +469,14 @@ function tryAddAnimation(x, y) {
     if (logUsageInfo) log("Using overlays " + overlayRangeMap[x][y].start + "-" + (overlayRangeMap[x][y].end - 1) + " at " + x + "," + y);
 }
 
+//------------------------------------------------------------------------
+// Examines the specified metatile and returns an array of objects,
+// each object containing data about how to draw one of the images
+// for this metatile. For static tiles, this the tile and tile position.
+// For animated tiles, this is the tile, tile position, layer, image
+// width and height, and the pixel offest into the image data.
+// If this metatile has no animating tiles it returns an empty array.
+//------------------------------------------------------------------------
 function getMetatileAnimData(metatileId) {
     let metatileData = [];
     let tiles = map.getMetatileTiles(metatileId);
@@ -478,15 +501,20 @@ function getMetatileAnimData(metatileId) {
         while (positions.anim[0] && Math.floor(positions.anim.slice(-1) / tilesPerLayer) == layer) {
             // Assemble data entry for animated tile
             let tilePos = positions.anim.pop();
-            let tile = tiles[tilePos];
             let dim = dimensions[tilePos];
             if (!dim) continue;
-            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tile, w: dim.w, h: dim.h, imageOffset: dim.offset});
+            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tiles[tilePos], w: dim.w, h: dim.h, imageOffset: dim.offset});
         }
     }
     return metatileData;
 }
 
+//-----------------------------------------------------
+// Reads the given tile array and returns an object
+// containing the positions of its animated tiles and
+// the positions of any static tiles layered above or
+// below the animated tiles.
+//-----------------------------------------------------
 function scanTiles(tiles) {
     // Scan metatile for animating tiles
     let animTilePositions = [];
@@ -506,9 +534,7 @@ function scanTiles(tiles) {
             savedColumns.push(layerPos);
         }
     }
-    let positions = {};
-    positions["static"] = staticTilePositions;
-    positions["anim"] = animTilePositions;
+    let positions = {static: staticTilePositions, anim: animTilePositions};
     return positions;
 }
 
@@ -516,10 +542,17 @@ function isAnimated(tileId) {
     return curTilesetsAnimData[tileId] != undefined;
 }
 
+
 //==================
 //  Image creation
 //==================
 
+//------------------------------------------------------------------
+// Creates the images for each frame of an animated tile at the
+// given position. Most of its job is determing (and saving) which
+// overlays to use for the images, and it passes the actual image
+// creation off to addAnimTileImage.
+//------------------------------------------------------------------
 function addAnimTileFrames(x, y, data) {
     let tileId = data.tile.tileId;
     let frames = curTilesetsAnimData[tileId].frames;
@@ -536,6 +569,12 @@ function addAnimTileFrames(x, y, data) {
     if (newOverlaySet) baseOverlayId = curAnimToOverlayMap[interval][frames.length] = numOverlays;
 
     // Add frame images for this tile
+    // NOTE: Nearly all of the animation load time comes from this loop, primarily
+    // the calls to map.createImage in addAnimTileImage. The optimization for repeated
+    // frames (only creating each frame image once) is almost a wash, because very few
+    // animations have repeat frames, so the overhead slows down loading on many maps.
+    // Maps that do have animations with repeat frames however (Route 117 especially)
+    // benefit significantly.
     let overlays = [];
     let frameOverlayMap = {};
     for (let i = 0; i < frames.length; i++) {
@@ -563,7 +602,7 @@ function addAnimTileFrames(x, y, data) {
     // Update overlay usage
     numOverlays = baseOverlayId;
 
-    // Add overlays to animation map
+    // Add overlays/interval to animation map
     if (animOverlayMap[interval] == undefined)
         animOverlayMap[interval] = [];
     animOverlayMap[interval].push(overlays);
@@ -571,23 +610,30 @@ function addAnimTileFrames(x, y, data) {
         curAnimIntervals.push(interval);
 }
 
+//-------------------------------------------------------------------
+// Create an image for one frame of an animated tile (or tile group)
+//-------------------------------------------------------------------
 function addAnimTileImage(x, y, data, frame, overlayId) {
     let tile = data.tile;
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
-    map.createImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
+    map.createImage(x_mapToScreen(x, data.pos), y_mapToScreen(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
 }
 
+//--------------------------------------------------
+// Create an image for one frame of a static tile
+//--------------------------------------------------
 function addStaticTileImage(x, y, data) {
     let tile = data.tile;
     map.hideOverlay(numOverlays);
-    map.addTileImage(x_mapToTile(x, data.pos), y_mapToTile(y, data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
+    map.addTileImage(x_mapToScreen(x, data.pos), y_mapToScreen(y, data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
 }
 
-//--------------------------------------------------------------------------------------------------------
-// Take a map coordinate and tile position and return the coordinate to start drawing that tile's image
-//--------------------------------------------------------------------------------------------------------
-function x_mapToTile(x, tilePos) { return x * metatileWidth + ((tilePos % metatileTileWidth) * tileWidth); }
-function y_mapToTile(y, tilePos) { return y * metatileHeight + (Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight); }
+//----------------------------------------------------------
+// Take a map coordinate and tile position and return
+// the pixel coordinate to start drawing that tile's image
+//----------------------------------------------------------
+function x_mapToScreen(x, tilePos) { return x * metatileWidth + ((tilePos % metatileTileWidth) * tileWidth); }
+function y_mapToScreen(y, tilePos) { return y * metatileHeight + (Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight); }
 
 //----------------------------------------------------------------
 // Calculate the region of the image each tile should load from.
@@ -644,9 +690,15 @@ function getTileImageDimensions(tiles) {
     return dimensions;
 }
 
+//---------------------------------------------------------------------------------------------
+// Calculate the pixel coordinates to start loading image data from for the given animation
+//---------------------------------------------------------------------------------------------
 function getImageDataX(anim) { return (anim.index * tileWidth) % anim.imageWidth; };
 function getImageDataY(anim) { return Math.floor(anim.index * tileWidth / anim.imageWidth) * tileHeight; }
 
+//------------------------------------------------------------------------------------
+// Determine whether or not the tiles at two different positions can share an image
+//------------------------------------------------------------------------------------
 function canCombine(data, a, b) {
     return (data[a] && data[b]
          && data[a].id == data[b].id
@@ -654,24 +706,29 @@ function canCombine(data, a, b) {
          && data[a].tile.yflip == data[b].tile.yflip
          && data[a].tile.palette == data[b].tile.palette);
 }
-
 function canCombine_Horizontal(data, a, b) {
     return (canCombine(data, a, b)
          && data[a].x == (data[b].x - tileWidth)
          && data[a].y == data[b].y);
 }
-
 function canCombine_Vertical(data, a, b) {
     return (canCombine(data, a, b)
          && data[a].x == data[b].x
          && data[a].y == (data[b].y - tileHeight));
 }
 
-//
-// To avoid users having to write out every tile in tilesetsData only the first tile of each animation
-// is listed (along with numTiles). This function handles copying properties from this tile to the remaining tiles.
-// It also constructs the full filepaths for each frame and handles removing any objects that are missing properties.
-//
+
+//==================
+//  Data building
+//==================
+
+//-----------------------------------------------------------------------------
+// Retrieve the user's animation data based on their project version, then
+// populate it. There are properties expected by the program that are not
+// written out in the data because they can be calculated, so this saves
+// the user manual entry (for instance, copying animation data for each tile,
+// or constructing the full filepath of each image).
+//-----------------------------------------------------------------------------
 function buildTilesetsData() {
     tilesetsData = JSON.parse(JSON.stringify(versionData[map.getBaseGameVersion()]));
     // For each tileset
@@ -741,22 +798,11 @@ function buildTilesetsData() {
     }
 }
 
-//---------------
-// Logging
-//---------------
-
-function log(message) {
-    map.log(logPrefix + message);
-}
-
-function warn(message) {
-    map.warn(logPrefix + message);
-}
-
-function error(message) {
-    map.error(logPrefix + message);
-}
-
+//-----------------------------------------------------------------------
+// Verify that the specified tileset data has the required properties.
+// If it's empty return false. If it's missing properties delete it and
+// return false. Otherwise return true.
+//-----------------------------------------------------------------------
 function verifyTilesetData(tilesetName) {
     let tilesetData = tilesetsData[tilesetName];
     if (tilesetData == undefined)
@@ -775,6 +821,11 @@ function verifyTilesetData(tilesetName) {
     return valid;
 }
 
+//---------------------------------------------------------------------------
+// Verify that the specified tile animation is valid. If it's empty return
+// false. If it's missing properties or it exceeds the total tile limit
+// then delete it and return false. Otherwise return true.
+//---------------------------------------------------------------------------
 function verifyTileAnimData(tileId, tilesetName) {
     // Assumes tileset data has already been verified
     let anim = tilesetsData[tilesetName].tileAnimations[tileId];
@@ -798,6 +849,11 @@ function verifyTileAnimData(tileId, tilesetName) {
     return valid;
 }
 
+//---------------------------------------------------------------------------
+// Verify that an animation can be written for targetTileId. If targetTileId
+// already has an animation or exceeds the total tile limit then return
+// false. Otherwise return true.
+//---------------------------------------------------------------------------
 function verifyAnimCopy(anims, targetTileId, srcTileId, tilesetName) {
     let valid = true;
     if (anims[targetTileId] != undefined) {
@@ -809,12 +865,19 @@ function verifyAnimCopy(anims, targetTileId, srcTileId, tilesetName) {
     return valid;
 }
 
+//---------------------------------------------------------------------------
+// Verify that the specified tile does not exceed the tileset's limit.
+// Exceeding the limit on a primary tileset is 'technically' ok as long as
+// it remains within the secondary tileset limit, but warn the user as it's
+// likely unintended. If the tile exceeds the secondary tileset, return
+// false. Otherwise return true.
+//---------------------------------------------------------------------------
 function verifyTileLimit(tileId, tilesetName) {
     let primary = tilesetsData[tilesetName].primary;
     let maxTile = primary ? maxPrimaryTile : maxSecondaryTile;
     if (tileId >= maxTile) {
         let message = ("Tile " + tileId + " exceeds limit of " + (maxTile - 1) + " for " + tilesetName);
-        if (primary) {
+        if (primary && tileId < maxSecondaryTile) {
             // Exceeding the limit is 'technically' ok for primary tilesets, but it's probably not intended.
             warn(message);
         } else {
@@ -825,15 +888,39 @@ function verifyTileLimit(tileId, tilesetName) {
     return true;
 }
 
+
+//==================
+//     Logging
+//==================
+
+function log(message) {
+    map.log(logPrefix + message);
+}
+
+function warn(message) {
+    map.warn(logPrefix + message);
+}
+
+function error(message) {
+    map.error(logPrefix + message);
+}
+
+//----------------------------------------------------
+// Log all of the calculated animation data. Unused.
+//----------------------------------------------------
 function debug_printAnimDataByTileset() {
     if (!logDebugInfo) return;
     for (var tilesetName in tilesetsData) {
-        map.log(tilesetName);
+        log(tilesetName);
         let anims = tilesetsData[tilesetName].tileAnimations;
         debug_printAnimData(anims);
     }
 }
 
+//--------------------------------------------------
+// Log the specified animation data. Used to print
+// the loaded animation for the current tilesets.
+//--------------------------------------------------
 function debug_printAnimData(anims) {
     if (!logDebugInfo) return;
     for (var tileId in anims) {
@@ -849,6 +936,10 @@ function debug_printAnimData(anims) {
     }
 }
 
+//------------------------------------------------
+// Log all the overlays being used for animation
+// and which timing interval they belong to.
+//------------------------------------------------
 function debug_printOverlays() {
     if (!logUsageInfo) return;
     for (const interval in animOverlayMap) {
