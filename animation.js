@@ -1,6 +1,4 @@
 /*
-    Prototype for Porymap animation script.
-
         SECTION LABELS
     =        Data       =
     =   Main callbacks  =
@@ -11,13 +9,10 @@
     =      Logging      =
 
     TODO:
-    - Compress copies to a single "numCopies" and "frameOffset" property
     - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
     - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
       As a backup, perhaps detect map_edit_mode and turn off animation during shift?
-    - Move top-level UI elements to foreground (above overlays). Namely the cursor tile rectangle, player view rectangle, and grid.
     - More data verification, e.g. interval != 0
-    - Test for interrupting animate loop. Switch to invoked function queue?
     - Comments and clean-up
     - Final general testing
     - Write README and INSTALL
@@ -137,11 +132,6 @@ export function onProjectOpened(projectPath) {
     if (animateOnLaunch) toggleAnimation();
 }
 
-/*export function onProjectClosed(projectPath) {
-    resetAnimation();
-    animating = false;
-}*/
-
 export function onMapOpened(newMapName) {
     map.clearOverlays();
     mapName = newMapName;
@@ -171,7 +161,7 @@ export function onTilesetUpdated(tilesetName) {
 
 export function onMainTabChanged(oldTab, newTab) {
     if (!oldTab && newTab) {
-        // Leaving map tab, save last map view tab
+        // Leaving map tab
         mapViewTab = map.getMapViewTab();
         setAnimating(false);
     } else if (oldTab && !newTab && !mapViewTab) {
@@ -208,10 +198,12 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
 //  Animation running
 //=====================
 
-//---------------------------------------------------------------------------------
-// This is the main animation function.
-// While animation is active it will call itself in a loop at a regular interval.
-//---------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------
+// This is the main animation loop. It's initially called by tryStartAnimation,
+// and it will call itself at a regular interval via setTimeout. Other functions
+// can interact with the animation loop by setting 'animating' to false to stop
+// animation or 'loadAnimations' to true to reload animation data.
+//-----------------------------------------------------------------------
 export function animate() {
     if (!animating) {
         // Stop animation
@@ -770,13 +762,12 @@ function buildTilesetsData() {
             }
             anim.index = 0;
 
-            // Create copies of animation tiles with offset frame timings (if any)
-            if (!anim.copies) continue;
-            for (let j = 0; j < anim.copies.length; j++) {
-                let copyData = anim.copies[j];
-                let offset = Math.abs(numFrames - copyData.frameOffset);
+            // Create copies of animation tiles with offset frame timings (if any).
+            if (!anim.frameOffsets) continue;
+            for (let j = 0; j < anim.frameOffsets.length; j++) {
+                let offset = Math.abs(numFrames - anim.frameOffsets[j]);
 
-                // Shift frames for offset copies (only shifting the filepath really matters)
+                // Shift frames for offset copy (only shifting the filepath really matters)
                 let copyFrames = [];
                 let copyFilepaths = [];
                 for (let frame = 0; frame < numFrames; frame++) {
@@ -785,8 +776,8 @@ function buildTilesetsData() {
                     copyFilepaths[frame] = anim.filepaths[shiftedFrame];
                 }
 
-                // Copy all tiles for offset animation
-                let copyTileIdInt = parseInt(copyData.tileId);
+                // Write animation for each tile of this offset copy
+                let copyTileIdInt = tileIdInt + anim.numTiles * (j + 1);
                 for (let k = 0; k < anim.numTiles; k++) {
                     let nextTileId = copyTileIdInt + k;
                     if (!verifyAnimCopy(anims, nextTileId, copyTileIdInt, tilesetName)) break;

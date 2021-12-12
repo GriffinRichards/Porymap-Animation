@@ -1,7 +1,5 @@
 /*
 
-
-
 */
 
 export const tilesetsData = {
@@ -67,14 +65,7 @@ export const tilesetsData = {
             640: { // (0x280)
                 folder: "windy_water",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
-                copies: [{tileId: 644, frameOffset: 1}, // (0x280)
-                         {tileId: 648, frameOffset: 2}, // (0x284)
-                         {tileId: 652, frameOffset: 3}, // (0x28C)
-                         {tileId: 656, frameOffset: 4}, // (0x290)
-                         {tileId: 660, frameOffset: 5}, // (0x294)
-                         {tileId: 664, frameOffset: 6}, // (0x298)
-                         {tileId: 668, frameOffset: 7}, // (0x29C)
-                ],
+                frameOffsets: [1, 2, 3, 4, 5, 6, 7],
                 numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
@@ -128,14 +119,7 @@ export const tilesetsData = {
                          "0", "0", "4", "4",
                          "0", "0", "4", "4",
                          "0", "0", "4", "4"],
-                copies: [{tileId: 612, frameOffset: 1},
-                         {tileId: 616, frameOffset: 2},
-                         {tileId: 620, frameOffset: 3},
-                         {tileId: 624, frameOffset: 4},
-                         {tileId: 628, frameOffset: 5},
-                         {tileId: 632, frameOffset: 6},
-                         {tileId: 636, frameOffset: 7},
-                ],
+                frameOffsets: [1, 2, 3, 4, 5, 6, 7],
                 numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
@@ -150,14 +134,7 @@ export const tilesetsData = {
                          "0", "0", "4", "4",
                          "0", "0", "4", "4",
                          "0", "0", "4", "4"],
-                copies: [{tileId: 644, frameOffset: 1},
-                         {tileId: 648, frameOffset: 2},
-                         {tileId: 652, frameOffset: 3},
-                         {tileId: 656, frameOffset: 4},
-                         {tileId: 660, frameOffset: 5},
-                         {tileId: 664, frameOffset: 6},
-                         {tileId: 668, frameOffset: 7},
-                ],
+                frameOffsets: [1, 2, 3, 4, 5, 6, 7],
                 numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
@@ -171,7 +148,7 @@ export const tilesetsData = {
             800: { // (0x320)
                 folder: "steam",
                 frames: ["0", "1", "2", "3"],
-                copies: [{tileId: 804, frameOffset: 2}],
+                frameOffsets: [2],
                 numTiles: 4,
                 interval: 16,
                 imageWidth: 16,
@@ -193,14 +170,7 @@ export const tilesetsData = {
             736: { // (0x2E0)
                 folder: "flowers",
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
-                copies: [{tileId: 740, frameOffset: 1},
-                         {tileId: 744, frameOffset: 2},
-                         {tileId: 748, frameOffset: 3},
-                         {tileId: 752, frameOffset: 4},
-                         {tileId: 756, frameOffset: 5},
-                         {tileId: 760, frameOffset: 6},
-                         {tileId: 764, frameOffset: 7},
-                ],
+                frameOffsets: [1, 2, 3, 4, 5, 6, 7],
                 numTiles: 4,
                 interval: 8,
                 imageWidth: 16,
