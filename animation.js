@@ -10,8 +10,6 @@
 
     TODO:
     - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
-    - Resolve map shift somehow? Requires API change: perhaps a new callback, or adding the ability to set overlay position
-      As a backup, perhaps detect map_edit_mode and turn off animation during shift?
     - More data verification, e.g. interval != 0
     - Comments and clean-up
     - Final general testing
@@ -150,8 +148,24 @@ export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
 }
 
 export function onMapShifted(xDelta, yDelta) {
-    // map.moveOverlays(xDelta * 16, yDelta * 16);
-    // TODO: Wrap overlays
+    if (xDelta == 0 && yDelta == 0) return; // Shouldn't happen, in theory
+    let newMap = {};
+    for (let x = 0; x < mapWidth; x++) {
+        if (!newMap[x]) newMap[x] = {};
+        for (let y = 0; y < mapHeight; y++) {
+            if (!newMap[x][y]) newMap[x][y] = {start: -1, end: -1};
+            let overlayStart = overlayRangeMap[x][y].start;
+            if (overlayStart == -1) continue;
+            let newX = getWrappedMapCoord(x + xDelta, mapWidth);
+            let newY = getWrappedMapCoord(y + yDelta, mapHeight);
+            let overlayEnd = overlayRangeMap[x][y].end;
+            for (let i = overlayStart; i < overlayEnd; i++)
+                setOverlayMapPos(newX, newY, i);
+            if (!newMap[newX]) newMap[newX] = {}
+            newMap[newX][newY] = {start: overlayStart, end: overlayEnd};
+        }
+    }
+    overlayRangeMap = newMap;
 }
 
 export function onTilesetUpdated(tilesetName) {
@@ -188,6 +202,7 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
     if (posHasAnimation(x, y)) {
         for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
             map.clearOverlay(i);
+        overlayRangeMap[x][y] = {start: -1, end: -1};
     }
 
     tryAddAnimation(x, y);
@@ -309,9 +324,11 @@ function updateOverlays(timer) {
     }
 }
 
-function posHasAnimation(x, y) {
-    return overlayRangeMap[x][y].start != undefined;
-}
+function setOverlayMapPos(x, y, overlayId) { map.setOverlayPosition(x_mapToScreen(x), y_mapToScreen(y), overlayId); }
+
+function getWrappedMapCoord(coord, max) { return ((coord >= 0) ? coord : (Math.abs(max - Math.abs(coord)))) % max; }
+
+function posHasAnimation(x, y) { return overlayRangeMap[x][y].start != -1; }
 
 //----------------------------------------------------------------------------
 // Timer max is the least common multiple of the animation interval * the
@@ -389,7 +406,7 @@ function getCurrentTileAnimationData() {
 // overlays were used.
 //-----------------------------------------------------------------
 function tryAddAnimation(x, y) {
-    overlayRangeMap[x][y] = {};
+    overlayRangeMap[x][y] = {start: -1, end: -1};
     let curStaticOverlays = [];
     let metatileId = map.getMetatileId(x, y);
     let metatileData = metatileCache[metatileId];
@@ -418,12 +435,13 @@ function tryAddAnimation(x, y) {
         // Draw static tiles on a shared overlay until we hit an animated tile or the end of the array
         let newStaticOverlay = false;
         while(metatileData[i] && !metatileData[i].animates) {
-            addStaticTileImage(x, y, metatileData[i]);
+            addStaticTileImage(metatileData[i]);
             newStaticOverlay = true;
             i++;
         }
         // Added static tile images, save and increment overlays
         if (newStaticOverlay) {
+            setOverlayMapPos(x, y, numOverlays);
             allStaticOverlays.push(numOverlays);
             curStaticOverlays.push(numOverlays);
             numOverlays++;
@@ -579,12 +597,15 @@ function addAnimTileFrames(x, y, data) {
         // Also hide the overlay; animated frame images are hidden until their frame is active
         if (newOverlaySet) {
             overlays.push(overlayId);
-            if (newFrame) map.hideOverlay(overlayId);
+            if (newFrame) {
+                map.hideOverlay(overlayId);
+                setOverlayMapPos(x, y, overlayId);
+            }
         }
 
         // Create new frame image
         if (newFrame) {
-            addAnimTileImage(x, y, data, i, overlayId);
+            addAnimTileImage(data, i, overlayId);
             frameOverlayMap[frames[i]] = overlayId;
         }
     }
@@ -605,27 +626,29 @@ function addAnimTileFrames(x, y, data) {
 //-------------------------------------------------------------------
 // Create an image for one frame of an animated tile (or tile group)
 //-------------------------------------------------------------------
-function addAnimTileImage(x, y, data, frame, overlayId) {
+function addAnimTileImage(data, frame, overlayId) {
     let tile = data.tile;
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
-    map.createImage(x_mapToScreen(x, data.pos), y_mapToScreen(y, data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
+    map.createImage(x_posToScreen(data.pos), y_posToScreen(data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
 }
 
 //--------------------------------------------------
 // Create an image for one frame of a static tile
 //--------------------------------------------------
-function addStaticTileImage(x, y, data) {
+function addStaticTileImage(data) {
     let tile = data.tile;
     map.hideOverlay(numOverlays);
-    map.addTileImage(x_mapToScreen(x, data.pos), y_mapToScreen(y, data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
+    map.addTileImage(x_posToScreen(data.pos), y_posToScreen(data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
 }
 
 //----------------------------------------------------------
-// Take a map coordinate and tile position and return
-// the pixel coordinate to start drawing that tile's image
+// Take a map coordinate or tile position and return the
+// corresponding pixel coordinate (or offset) on-screen.
 //----------------------------------------------------------
-function x_mapToScreen(x, tilePos) { return x * metatileWidth + ((tilePos % metatileTileWidth) * tileWidth); }
-function y_mapToScreen(y, tilePos) { return y * metatileHeight + (Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight); }
+function x_mapToScreen(x) { return x * metatileWidth; }
+function y_mapToScreen(y) { return y * metatileHeight; }
+function x_posToScreen(tilePos) { return (tilePos % metatileTileWidth) * tileWidth; }
+function y_posToScreen(tilePos) { return Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight; }
 
 //----------------------------------------------------------------
 // Calculate the region of the image each tile should load from.
