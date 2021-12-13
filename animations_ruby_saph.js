@@ -45,7 +45,7 @@ export const tilesetsData = {
                 interval: 16,
                 imageWidth: 16,
             },
-        }
+        },
     },
     "gTileset_Building": {
         folder: "building/anim",

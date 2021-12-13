@@ -25,14 +25,12 @@ export const logBasicInfo = true;
  // performance. Only turn them on if you need to.
 export const logUsageInfo = false;
 export const logDebugInfo = false;
-export const logBenchmarkInfo = false;
 
 // Timing
  // There are 1000ms in a second, and the GBA's refresh rate is ~59.73 frames per second.
  // After rounding, the refresh rate will be just slightly slower than the GBA (17ms vs 16.74ms).
  // The timer operates in millisecond units, so it is not possible to set a closer interval.
 export const refreshTime =  Math.round(1000 / 59.73);
-export const defaultTimerMax = 55440; // Arbitrary "highly composite" number
 
 // Exceptions
 // If you'd like to always skip animations for certain maps, add them to this list

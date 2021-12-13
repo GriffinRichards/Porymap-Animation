@@ -27,7 +27,6 @@ export const tilesetsData = {
                 numTiles: 10,
                 interval: 16,
                 imageWidth: 80,
-
             },
             496: { // (0x1F0)
                 folder: "waterfall",
@@ -43,7 +42,7 @@ export const tilesetsData = {
                 interval: 16,
                 imageWidth: 16,
             },
-        }
+        },
     },
     "gTileset_Building": {
         folder: "building/anim",

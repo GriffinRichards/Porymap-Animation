@@ -5,16 +5,9 @@
     = Animation running =
     = Animation loading =
     =   Image creation  =
+    =    Coordinates    =
     =   Data building   =
     =      Logging      =
-
-    TODO:
-    - Properly remove old overlays. Overlays cleared by erasing/redrawing are left in the overlay map.
-    - More data verification, e.g. interval != 0
-    - Comments and clean-up
-    - Final general testing
-    - Write README and INSTALL
-    - PR (clean up code, update manual and changelog, write description)
 
 */
 
@@ -35,18 +28,21 @@ import {
     logBasicInfo,
     logDebugInfo,
     logUsageInfo,
-    logBenchmarkInfo,
     refreshTime,
-    defaultTimerMax,
     mapExceptions
 } from "./animation_settings.js"
 
 var root = "";
-var timer = 0;
-var timerMax = defaultTimerMax;
 var animating = false;
 var animateFuncActive = false;
+var loadAnimations = true;
 var numOverlays = 1;
+
+var mapName;
+var mapWidth;
+var mapHeight;
+
+var mapViewTab = 0;
 
 var tilesetsData;
 
@@ -57,45 +53,32 @@ var tilesetsData;
 // for a space when it's drawn on.
 var overlayRangeMap;
 
-// 3D array
+// These object map overlays to the intervals of the animation they're associated with.
+// Each property is an interval. For animOverlayMap, each value is an array of overlay ids; each
+// overlay is only associated with 1 interval. For staticOverlayMap, each value is an object
+// containing an array of overlay ids and a value for whether or not they are currently hidden.
+// Static overlays are associated with every interval that exists on the map space they are
+// associated with. The array below them is for temporarily tracking which intervals are being
+// used in order to build staticOverlayMap.
 var animOverlayMap = {};
-
-// Array of all the active static overlays. Used to re-show them after toggling animation.
-var allStaticOverlays = [];
-
-// This object maps static overlays to the intervals of the animation they're associated with.
-// Each property is an interval, and each value is an array of overlay ids. The array below it
-// is for temporarily tracking which intervals are being used in order to build this object.
 var staticOverlayMap = {};
 var curAnimIntervals = [];
 
 // Object for caching data about how to build an animation for a given metatile so
 // that when it's encountered again the animation can be created faster.
 // Each metatile id is a property, the value of which is an object that holds the
-// positions of animated tiles (animTilePositions), the positions of static tiles
-// layered on top of animated tiles (staticTilePositions), and all the tiles (tiles).
+// animation data. See getMetatileAnimData for the format of this data.
 var metatileCache = {};
 
 // Object for storing data on all the possible tile animations in the current primary/secondary tilesets.
-// Each tile id is a property.
-// The values are objects with the same properties as those in tileAnimations
+// Each tile id is a property. The values are objects with the same properties as those in tileAnimations
 var curTilesetsAnimData = {};
 
 // Object for tracking which animations have been encountered already on the current
 // metatile layer so that they can be grouped together on the same overlays.
-// Properties are the 'identifier' field of the tile animations encountered,
-// values are the overlay the first frame belongs to.
+// It takes both the interval and number of frames as properties, and the returned
+// value is the overlay the first frame belongs to.
 var curAnimToOverlayMap = {};
-
-// Whether or not the animations should be reloaded.
-// This needs to happen when the map or tilesets change.
-var loadAnimations = true;
-
-var mapName;
-var mapWidth;
-var mapHeight;
-
-var mapViewTab = 0;
 
 // Basic tile/metatile size information
 const tileWidth = 8;
@@ -107,13 +90,19 @@ const metatileWidth = tileWidth * metatileTileWidth;
 const metatileHeight = tileHeight * metatileTileHeight;
 var tilesPerMetatile;
 var maxMetatileLayer;
-var maxPrimaryTile = 512;
-var maxSecondaryTile = maxPrimaryTile + 512; // TODO: Read from project
+var maxPrimaryTile;
+var maxSecondaryTile;
 
 // For getting least common multiple of animation intervals
 // https://stackoverflow.com/questions/47047682
 const gcd = (a, b) => a ? gcd(b % a, a) : b;
 const lcm = (a, b) => a * b / gcd(a, b);
+
+ // Arbitrary "highly composite" number. Only used when no
+ // animations are loaded, so its value is mostly irrelevant.
+const defaultTimerMax = 55440;
+var timer = 0;
+var timerMax = defaultTimerMax;
 
 
 //====================
@@ -124,6 +113,8 @@ export function onProjectOpened(projectPath) {
     root = projectPath + "/";
     tilesPerMetatile = map.getNumTilesInMetatile();
     maxMetatileLayer = map.getNumMetatileLayers();
+    maxPrimaryTile = map.getMaxPrimaryTilesetTiles();
+    maxSecondaryTile = maxPrimaryTile + map.getMaxSecondaryTilesetTiles();
     map.registerAction("toggleAnimation", "Toggle map animations", toggleShortcut);
     map.registerAction("reloadAnimation", "Reload map animations", reloadShortcut)
     buildTilesetsData();
@@ -139,16 +130,16 @@ export function onMapOpened(newMapName) {
 }
 
 export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
+    map.clearOverlays();
     mapWidth = newWidth;
     mapHeight = newHeight;
-    if (newWidth < oldWidth || newHeight < oldHeight) {
-        map.clearOverlays();
-        loadAnimations = true;
-    }
+    loadAnimations = true;
 }
 
 export function onMapShifted(xDelta, yDelta) {
-    if (xDelta == 0 && yDelta == 0) return; // Shouldn't happen, in theory
+    if (xDelta == 0 && yDelta == 0) return;
+
+    // Move and wrap the overlays and reconstruct overlayRangeMap
     let newMap = {};
     for (let x = 0; x < mapWidth; x++) {
         if (!newMap[x]) newMap[x] = {};
@@ -197,14 +188,7 @@ export function onMapViewTabChanged(oldTab, newTab) {
 export function onBlockChanged(x, y, prevBlock, newBlock) {
     if (newBlock.metatileId == prevBlock.metatileId)
         return;
-
-    // Erase old animation
-    if (posHasAnimation(x, y)) {
-        for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
-            map.clearOverlay(i);
-        overlayRangeMap[x][y] = {start: -1, end: -1};
-    }
-
+    tryRemoveAnimation(x, y);
     tryAddAnimation(x, y);
 }
 
@@ -228,10 +212,8 @@ export function animate() {
     }
     if (loadAnimations) {
         resetAnimation();
-        benchmark_init();
         loadMapAnimations();
         timerMax = calculateTimerMax();
-        benchmark_log("Animation load");
         if (logDebugInfo) log("Timer max: " + timerMax);
         if (logUsageInfo) {
             log("Overlays used: " + (numOverlays - 1));
@@ -276,7 +258,6 @@ function resetAnimation() {
     animOverlayMap = {};
     staticOverlayMap = {};
     metatileCache = {};
-    allStaticOverlays = [];
 }
 
 export function reloadAnimation() {
@@ -284,7 +265,7 @@ export function reloadAnimation() {
     resetAnimation();
     buildTilesetsData();
     loadAnimations = true;
-    animating = animateOnLaunch;
+    setAnimating(animateOnLaunch);
 }
 
 //--------------------------------------------------------------------
@@ -296,7 +277,6 @@ function updateOverlays(timer) {
     // For each timing interval of the current animations
     for (const interval in animOverlayMap) {
         if (timer % interval == 0) {
-            benchmark_init();
             // For each tile animating at this interval,
             // hide the previous frame and show the next frame
             let overlayLists = animOverlayMap[interval];
@@ -312,23 +292,13 @@ function updateOverlays(timer) {
             // Show all the unrevealed static overlays associated
             // with animations at this interval
             if (staticOverlayMap[interval] && staticOverlayMap[interval].hidden) {
-                for (let i = 0; i < staticOverlayMap[interval].overlays.length; i++) {
-                    let overlayId = staticOverlayMap[interval].overlays[i];
-                    if (!map.getOverlayVisibility(overlayId))
-                        map.showOverlay(overlayId)
-                }
+                for (let i = 0; i < staticOverlayMap[interval].overlays.length; i++)
+                    map.showOverlay(staticOverlayMap[interval].overlays[i])
                 staticOverlayMap[interval].hidden = false;
             }
-            benchmark_log("Animating interval " + interval);
         }
     }
 }
-
-function setOverlayMapPos(x, y, overlayId) { map.setOverlayPosition(x_mapToScreen(x), y_mapToScreen(y), overlayId); }
-
-function getWrappedMapCoord(coord, max) { return ((coord >= 0) ? coord : (Math.abs(max - Math.abs(coord)))) % max; }
-
-function posHasAnimation(x, y) { return overlayRangeMap[x][y].start != -1; }
 
 //----------------------------------------------------------------------------
 // Timer max is the least common multiple of the animation interval * the
@@ -398,6 +368,19 @@ function getCurrentTileAnimationData() {
     return Object.assign(s_TilesetData.tileAnimations, p_TilesetData.tileAnimations); 
 }
 
+//----------------------------------------------------------------------------
+// Removes the animation (if it exists) at the given map coordinates.
+// Overlays are not re-used unless animations are fully reloaded, so this
+// doesn't bother to remove overlays from the overlay maps. Over a very long
+// period this could impact performance, but it keeps drawing speed high.
+//----------------------------------------------------------------------------
+function tryRemoveAnimation(x, y) {
+    if (overlayRangeMap[x][y].start != -1) {
+        for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
+            map.clearOverlay(i);
+    }
+}
+
 //-----------------------------------------------------------------
 // Tries to create a new animation at the given map coordinates.
 // If the metatile at this position has not been encountered yet,
@@ -442,7 +425,6 @@ function tryAddAnimation(x, y) {
         // Added static tile images, save and increment overlays
         if (newStaticOverlay) {
             setOverlayMapPos(x, y, numOverlays);
-            allStaticOverlays.push(numOverlays);
             curStaticOverlays.push(numOverlays);
             numOverlays++;
         }
@@ -641,15 +623,6 @@ function addStaticTileImage(data) {
     map.addTileImage(x_posToScreen(data.pos), y_posToScreen(data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
 }
 
-//----------------------------------------------------------
-// Take a map coordinate or tile position and return the
-// corresponding pixel coordinate (or offset) on-screen.
-//----------------------------------------------------------
-function x_mapToScreen(x) { return x * metatileWidth; }
-function y_mapToScreen(y) { return y * metatileHeight; }
-function x_posToScreen(tilePos) { return (tilePos % metatileTileWidth) * tileWidth; }
-function y_posToScreen(tilePos) { return Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight; }
-
 //----------------------------------------------------------------
 // Calculate the region of the image each tile should load from.
 //----------------------------------------------------------------
@@ -731,6 +704,27 @@ function canCombine_Vertical(data, a, b) {
          && data[a].x == data[b].x
          && data[a].y == (data[b].y - tileHeight));
 }
+
+
+//==================
+//   Coordinates
+//==================
+
+//------------------------------------------------------------------------
+// The below functions all deal with coordinate conversions.
+// - mapToScreen takes a map coordinate and returns a pixel coordinate.
+// - posToScreen takes a tile position and returns a pixel offset.
+// - setOverlayMapPos takes map coordinates and and an overlay id and
+//   sets the pixel coordinates of that overlay.
+// - getWrappedMapCoord takes a map coordinate and a max width or height
+//   and returns a bounded map coordinate.
+//------------------------------------------------------------------------
+function x_mapToScreen(x) { return x * metatileWidth; }
+function y_mapToScreen(y) { return y * metatileHeight; }
+function x_posToScreen(tilePos) { return (tilePos % metatileTileWidth) * tileWidth; }
+function y_posToScreen(tilePos) { return Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight; }
+function setOverlayMapPos(x, y, overlayId) { map.setOverlayPosition(x_mapToScreen(x), y_mapToScreen(y), overlayId); }
+function getWrappedMapCoord(coord, max) { return ((coord >= 0) ? coord : (Math.abs(max - Math.abs(coord)))) % max; }
 
 
 //==================
@@ -826,10 +820,17 @@ function verifyTilesetData(tilesetName) {
 
     let valid = true;
     let properties = ["tileAnimations", "folder"]; // "primary" is not required
+    let propertyErrors = [verifyObject, verifyString];
     for (let i = 0; i < properties.length; i++) {
         if (!tilesetData.hasOwnProperty(properties[i])) {
             error(tilesetName + " is missing property '" + properties[i] + "'");
             valid = false;
+        } else {
+             let errorMsg = propertyErrors[i](tilesetData[properties[i]]);
+             if (errorMsg) {
+                error(tilesetName + " has invalid property '" + properties[i] + "': " + errorMsg);
+                valid = false;
+             }
         }
     }
     if (!valid)
@@ -854,15 +855,47 @@ function verifyTileAnimData(tileId, tilesetName) {
         valid = false;
 
     let properties = ["numTiles", "frames", "interval", "folder", "imageWidth"];
+    let propertyErrors = [verifyPositive, verifyArray, verifyPositive, verifyString, verifyPositive];
     for (let i = 0; i < properties.length; i++) {
         if (!anim.hasOwnProperty(properties[i])) {
             error("Animation for tile " + tileId + " of " + tilesetName + " is missing property '" + properties[i] + "'");
             valid = false;
+        } else {
+             let errorMsg = propertyErrors[i](anim[properties[i]]);
+             if (errorMsg) {
+                error("Animation for tile " + tileId + " of " + tilesetName + " has invalid property '" + properties[i] + "': " + errorMsg);
+                valid = false;
+             }
         }
     }
     if (!valid)
         delete tilesetsData[tilesetName].tileAnimations[tileId];
     return valid;
+}
+
+//--------------------------------------------------------------------------
+// The below are used for verifying basic validity of a property's value.
+// They return an error message if invalid, and an empty string otherwise.
+//--------------------------------------------------------------------------
+function verifyPositive(value) {
+    if (typeof value !== "number" || value <= 0)
+        return "'" + value + "' is not a positive number";
+    return "";
+}
+function verifyString(value) {
+    if (typeof value !== "string")
+        return "'" + value + "' is not a string";
+    return "";
+}
+function verifyObject(value) {
+    if (typeof value !== "object")
+        return "'" + value + "' is not an object";
+    return "";
+}
+function verifyArray(value) {
+    if (typeof value !== "object" || !Array.isArray(value) || value.length == 0)
+        return "'" + value + "' is not a non-empty array";
+    return "";
 }
 
 //---------------------------------------------------------------------------
@@ -894,7 +927,6 @@ function verifyTileLimit(tileId, tilesetName) {
     if (tileId >= maxTile) {
         let message = ("Tile " + tileId + " exceeds limit of " + (maxTile - 1) + " for " + tilesetName);
         if (primary && tileId < maxSecondaryTile) {
-            // Exceeding the limit is 'technically' ok for primary tilesets, but it's probably not intended.
             warn(message);
         } else {
             error(message);
@@ -960,36 +992,15 @@ function debug_printOverlays() {
     if (!logUsageInfo) return;
     for (const interval in animOverlayMap) {
         log("Overlays animating at interval of " + interval + ":");
-        let overlayLists = animOverlayMap[interval];
-        for (let j = 0; j < overlayLists.length; j++) {
-            log(overlayLists[j]);
+        let animOverlays = animOverlayMap[interval];
+        for (let j = 0; j < animOverlays.length; j++) {
+            log(animOverlays[j]);
+        }
+        log("Static overlays associated with interval " + interval + ":");
+        let staticOverlays = staticOverlayMap[interval];
+        if (!staticOverlays) continue;
+        for (let j = 0; j < staticOverlays.overlays.length; j++) {
+            log(staticOverlays.overlays[j]);
         }
     }
-}
-
-var benchmark;
-var runningTotal = 0;
-
-function benchmark_init() {
-    if (!logBenchmarkInfo) return;
-    benchmark = new Date().getTime();
-}
-
-function benchmark_add() {
-    if (!logBenchmarkInfo) return;
-    let cur = new Date().getTime();
-    runningTotal += cur - benchmark;
-    benchmark = cur;
-}
-
-function benchmark_log(message) {
-    if (!logBenchmarkInfo) return;
-    let end = new Date().getTime();
-    log(message + " time: " + (end - benchmark));
-    benchmark = end;
-}
-
-function benchmark_total(message) {
-    if (!logBenchmarkInfo) return;
-    log(message + " time: " + runningTotal);
 }
