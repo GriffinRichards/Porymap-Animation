@@ -72,7 +72,7 @@ Each file contains a single object called `tilesetsData`. Each entry in this obj
         },
     },
 ```
-- The top propery `"gTileset_Rustboro"` is the name of the tileset this data belongs to
+- The top property `"gTileset_Rustboro"` is the name of the tileset this data belongs to
 - `folder: "rustboro/anim",` defines the base filepath for all animation images in this tileset, in this case `rustboro/anim`.
 - `primary: false,` is whether or not this tileset is a primary tileset. This is not required; if it is excluded it will be assumed to be `false`.
 - `tileAnimations` defines the object that contains data for each animating tile in this tileset.

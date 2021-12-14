@@ -1,6 +1,6 @@
 ## Prerequisites
 
-**NOTE:** This is plug-in is not currently supported by any released version of Porymap. It can only be used if you build Porymap from source using the version located at this branch: https://github.com/GriffinRichards/porymap/tree/expand-API
+**NOTE:** This plug-in is not currently supported by any released version of Porymap. It can only be used if you build Porymap from source using the version located at this branch: https://github.com/GriffinRichards/porymap/tree/expand-API
 
 You are assumed to already have a Pokémon generation 3 decompilation project set up. If you do not, see the `INSTALL.md` at [pokeemerald](https://github.com/pret/pokeemerald), [pokefirered](https://github.com/pret/pokefirered) or [pokeruby](https://github.com/pret/pokeruby), or the fork of your choice.
 There is very little this plug-in needs from your project, and what little it does (filepaths) can be changed in `settings.js` and `animations_<version>.js`, so if your project works with a compatible version of Porymap it should work with this plug-in.
