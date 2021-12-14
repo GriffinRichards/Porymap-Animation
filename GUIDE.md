@@ -34,14 +34,14 @@ export const versionData = [rs, frlg, em];
 ```
 These are the files containing the animation data. If you would like to use your own file you need only change the filepath.
 
-By defaut these files contain animation data for all of the vanilla animations in each game version. If you would like to delete the files for the versions you are not using you may replace all 3 filepaths with the same file, or replace the exports with empty objects, e.g.
+By default these files contain animation data for all of the vanilla animations in each game version. If you would like to delete the files for the versions you are not using you may replace all 3 filepaths with the same file, or replace the exports with empty objects, e.g.
 ```
 import {tilesetsData as em}   from './animations_pokeemerald.js';
 export const versionData = [{}, {}, em];
 ```
 Which data set in `versionData` that gets used depends on the value of `base_game_version` in your project's `porymap.project.cfg` file. `pokeruby` will use the first, `pokefirered` the second, and `pokeemerald` the third.
 
-## Custom Animations
+## Animation data format
 
 After customizing settings you may want to add or change tile animations. Navigate to and open the `animations_<version>.js` file your project uses. If you're not sure which of the 3 it uses, see above.
 
@@ -93,7 +93,7 @@ Let's look at the second entry in `tileAnimations`
 - `folder: "fountain",` is the name of the folder containing the animation images, in this case `fountain`.
 - `frames: ["0", "1"],` is an array of filenames for the animation images, and the order in which they should appear before looping. If they need to repeat they can be listed again in the array.
 - `numTiles: 4,` is the number of tiles this animation spans. This means tiles 960, 961, 962, and 963 are all part of this animation.
-- `interval: 8,` is a measure of how much time should pass between frames. A lower value is a faster animation.
+- `interval: 8,` is the number of animation updates that will pass before the frame changes. A lower value is a faster animation.
 - `imageWidth: 16,` is the width of each image for this animation.
 
 These are all the basic, required properties to add any for new animation. There are also a few optional properties:
@@ -131,3 +131,65 @@ The animation images for this tileset will therefore come from `data/tilesets/se
 
 ## Creating an animation using `tileset_anims.c`
 
+`src/tileset_anims.c` in your project is where in-game animations are defined. The plug-in will not interact with this file. This is a short explanation of how to derive the above data format from the information in this file. As an an example we'll look at the floating log animations in `gTileset_Pacifidlog`. In this plug-in, its data looks like this:
+```
+            976: { // (0x3D0)
+                folder: "log_bridges",
+                frames: ["0", "1", "2", "1],
+                numTiles: 30,
+                interval: 16,
+                imageWidth: 16,
+            },
+```
+Let's see how the `folder`, `frames`, `numTiles`, `interval`, `imageWidth` and start tile `976` were obtained. 
+
+### Getting `folder` and `imageWidth`
+Navigate to the tileset animation folder for `gTileset_Pacifidlog`, which is `data/tilesets/secondary/pacifidlog/anim`. This is where the `log_bridges` folder is, and the images in this folder have a width of `16` pixels, so we add `folder: "log_bridges",` and `imageWidth: 16,`. It also has 3 images in it named `0.png`, `1.png`, and `2.png`. These are the frames, but first we need to know what order they go in.
+
+### Getting `frames`
+
+Navigate to `src/tileset_anims.c` and find where the above files are included
+```c
+const u16 gTilesetAnims_Pacifidlog_LogBridges_Frame0[] = INCBIN_U16("data/tilesets/secondary/pacifidlog/anim/log_bridges/0.4bpp");
+const u16 gTilesetAnims_Pacifidlog_LogBridges_Frame1[] = INCBIN_U16("data/tilesets/secondary/pacifidlog/anim/log_bridges/1.4bpp");
+const u16 gTilesetAnims_Pacifidlog_LogBridges_Frame2[] = INCBIN_U16("data/tilesets/secondary/pacifidlog/anim/log_bridges/2.4bpp");
+```
+These are the names given to the frames in the project. Next find where they're used
+```c
+const u16 *const gTilesetAnims_Pacifidlog_LogBridges[] = {
+    gTilesetAnims_Pacifidlog_LogBridges_Frame0,
+    gTilesetAnims_Pacifidlog_LogBridges_Frame1,
+    gTilesetAnims_Pacifidlog_LogBridges_Frame2,
+    gTilesetAnims_Pacifidlog_LogBridges_Frame1
+};
+```
+Here we can see the order of the frames for this animation goes 0, 1, 2, 1. Using the filenames we can now add `frames: ["0", "1", "2", "1"],` to the animation.
+
+### Getting the start tile id and `numTiles`
+Find where the above frame table (`gTilesetAnims_Pacifidlog_LogBridges`) is used.
+```c
+static void QueueAnimTiles_Pacifidlog_LogBridges(u8 timer)
+{
+    u8 i = timer % 4;
+    AppendTilesetAnimToBuffer(gTilesetAnims_Pacifidlog_LogBridges[i], (u16 *)(BG_VRAM + TILE_OFFSET_4BPP(NUM_TILES_IN_PRIMARY + 464)), 0x3C0);
+}
+```
+`timer % 4` just ensures that `i` is within bounds of `gTilesetAnims_Pacifidlog_LogBridges`. This is equivalent to `u8 i = timer % ARRAY_COUNT(gTilesetAnims_Pacifidlog_LogBridges);`, it's not relevant for us here. We can get the start tile id from the second argument to `AppendTilesetAnimToBuffer`:
+```c
+(u16 *)(BG_VRAM + TILE_OFFSET_4BPP(NUM_TILES_IN_PRIMARY + 464))
+```
+By finding the definition of `NUM_TILES_IN_PRIMARY` we can see it's `512`, and `512+464` is `976`. This is the start tile for this animation. The last argument to `AppendTilesetAnimToBuffer` is the size to copy over. `0x3C0` is `960` in decimal. Each tile has a size of 32, so `960/32` gives us `numTiles`, which is `30`. Depending on your project this last argument may look like `30 * TILE_SIZE_4BPP` already, so it's even clearer that the number of tiles is `30`.
+
+
+### Getting `interval`
+Find where the above function (`QueueAnimTiles_Pacifidlog_LogBridges`) is used.
+```c
+static void TilesetAnim_Pacifidlog(u16 timer)
+{
+    if (timer % 16 == 0)
+        QueueAnimTiles_Pacifidlog_LogBridges(timer >> 4);
+    if (timer % 16 == 1)
+        QueueAnimTiles_Pacifidlog_WaterCurrents(timer >> 4);
+}
+```
+`if (timer % 16 == 0)` tells us that `QueueAnimTiles_Pacifidlog_LogBridges` will get called once every 16 updates, which gives us an interval of `16`. And that's it, now we have all the data we need to build this animation in the plug-in.
