@@ -53,7 +53,7 @@ var tilesetsData;
 // for a space when it's drawn on.
 var overlayRangeMap;
 
-// These object map overlays to the intervals of the animation they're associated with.
+// These objects map overlays to the intervals of the animation they're associated with.
 // Each property is an interval. For animOverlayMap, each value is an array of overlay ids; each
 // overlay is only associated with 1 interval. For staticOverlayMap, each value is an object
 // containing an array of overlay ids and a value for whether or not they are currently hidden.
@@ -464,9 +464,9 @@ function tryAddAnimation(x, y) {
 //------------------------------------------------------------------------
 // Examines the specified metatile and returns an array of objects,
 // each object containing data about how to draw one of the images
-// for this metatile. For static tiles, this the tile and tile position.
-// For animated tiles, this is the tile, tile position, layer, image
-// width and height, and the pixel offest into the image data.
+// for this metatile. For static tiles, this is the tile and tile
+// position. For animated tiles, this is the tile, tile position, layer,
+// image width and height, and the pixel offset into the image data.
 // If this metatile has no animating tiles it returns an empty array.
 //------------------------------------------------------------------------
 function getMetatileAnimData(metatileId) {
@@ -541,7 +541,7 @@ function isAnimated(tileId) {
 
 //------------------------------------------------------------------
 // Creates the images for each frame of an animated tile at the
-// given position. Most of its job is determing (and saving) which
+// given position. Most of its job is determining (and saving) which
 // overlays to use for the images, and it passes the actual image
 // creation off to addAnimTileImage.
 //------------------------------------------------------------------
@@ -714,8 +714,8 @@ function canCombine_Vertical(data, a, b) {
 // The below functions all deal with coordinate conversions.
 // - mapToScreen takes a map coordinate and returns a pixel coordinate.
 // - posToScreen takes a tile position and returns a pixel offset.
-// - setOverlayMapPos takes map coordinates and and an overlay id and
-//   sets the pixel coordinates of that overlay.
+// - setOverlayMapPos takes map coordinates and an overlay id and sets
+//   the pixel coordinates of that overlay.
 // - getWrappedMapCoord takes a map coordinate and a max width or height
 //   and returns a bounded map coordinate.
 //------------------------------------------------------------------------
@@ -767,7 +767,7 @@ function buildTilesetsData() {
             let animPath = (anim.externalFolder ? root : tilesetPath) + anim.folder + "/";
             for (let frame = 0; frame < numFrames; frame++)
                 anim.filepaths[frame] = animPath + anim.frames[frame] + animFileExtension;
-            anim.filepath = animPath; // For debug only
+            anim.filepath = animPath;
 
             // Copy first tile animation for the remaining tiles
             let tileIdInt = parseInt(tileId);
@@ -819,16 +819,27 @@ function verifyTilesetData(tilesetName) {
         return false; // A tileset missing a header is invalid but not an error
 
     let valid = true;
-    let properties = ["tileAnimations", "folder"]; // "primary" is not required
-    let propertyErrors = [verifyObject, verifyString];
-    for (let i = 0; i < properties.length; i++) {
-        if (!tilesetData.hasOwnProperty(properties[i])) {
-            error(tilesetName + " is missing property '" + properties[i] + "'");
+    let reqProperties = ["tileAnimations", "folder"];
+    let reqPropertyErrors = [verifyObject, verifyString];
+    for (let i = 0; i < reqProperties.length; i++) {
+        if (!tilesetData.hasOwnProperty(reqProperties[i])) {
+            error(tilesetName + " is missing property '" + reqProperties[i] + "'");
             valid = false;
         } else {
-             let errorMsg = propertyErrors[i](tilesetData[properties[i]]);
+             let errorMsg = reqPropertyErrors[i](tilesetData[reqProperties[i]]);
              if (errorMsg) {
-                error(tilesetName + " has invalid property '" + properties[i] + "': " + errorMsg);
+                error(tilesetName + " has invalid property '" + reqProperties[i] + "': " + errorMsg);
+                valid = false;
+             }
+        }
+    }
+    let optProperties = ["primary"];
+    let optPropertyErrors = [verifyBool];
+    for (let i = 0; i < optProperties.length; i++) {
+        if (tilesetData.hasOwnProperty(optProperties[i])) {
+             let errorMsg = optPropertyErrors[i](tilesetData[optProperties[i]]);
+             if (errorMsg) {
+                error(tilesetName + " has invalid property '" + optProperties[i] + "': " + errorMsg);
                 valid = false;
              }
         }
@@ -854,16 +865,27 @@ function verifyTileAnimData(tileId, tilesetName) {
     if (!verifyTileLimit(tileId, tilesetName))
         valid = false;
 
-    let properties = ["numTiles", "frames", "interval", "folder", "imageWidth"];
-    let propertyErrors = [verifyPositive, verifyArray, verifyPositive, verifyString, verifyPositive];
-    for (let i = 0; i < properties.length; i++) {
-        if (!anim.hasOwnProperty(properties[i])) {
-            error("Animation for tile " + tileId + " of " + tilesetName + " is missing property '" + properties[i] + "'");
+    let reqProperties = ["numTiles", "frames", "interval", "folder", "imageWidth"];
+    let reqPropertyErrors = [verifyPositive, verifyArray, verifyPositive, verifyString, verifyPositive];
+    for (let i = 0; i < reqProperties.length; i++) {
+        if (!anim.hasOwnProperty(reqProperties[i])) {
+            error("Animation for tile " + tileId + " of " + tilesetName + " is missing property '" + reqProperties[i] + "'");
             valid = false;
         } else {
-             let errorMsg = propertyErrors[i](anim[properties[i]]);
+             let errorMsg = reqPropertyErrors[i](anim[reqProperties[i]]);
              if (errorMsg) {
-                error("Animation for tile " + tileId + " of " + tilesetName + " has invalid property '" + properties[i] + "': " + errorMsg);
+                error("Animation for tile " + tileId + " of " + tilesetName + " has invalid property '" + reqProperties[i] + "': " + errorMsg);
+                valid = false;
+             }
+        }
+    }
+    let optProperties = ["frameOffsets", "externalFolder"];
+    let optPropertyErrors = [verifyArray, verifyBool];
+    for (let i = 0; i < optProperties.length; i++) {
+        if (anim.hasOwnProperty(optProperties[i])) {
+             let errorMsg = optPropertyErrors[i](anim[optProperties[i]]);
+             if (errorMsg) {
+                error("Animation for tile " + tileId + " of " + tilesetName + " has invalid property '" + optProperties[i] + "': " + errorMsg);
                 valid = false;
              }
         }
@@ -885,6 +907,11 @@ function verifyPositive(value) {
 function verifyString(value) {
     if (typeof value !== "string")
         return "'" + value + "' is not a string";
+    return "";
+}
+function verifyBool(value) {
+    if (typeof value !== "boolean")
+        return "'" + value + "' is not a boolean";
     return "";
 }
 function verifyObject(value) {

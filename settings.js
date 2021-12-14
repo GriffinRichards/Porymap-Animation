@@ -13,7 +13,7 @@ import {tilesetsData as rs}   from './animations_pokeruby.js';
 export const versionData = [rs, frlg, em];
 
 // Base filepaths
-export const tilesetsPath = "data/tilesets/"
+export const tilesetsPath = "data/tilesets/";
 export const primaryPath = tilesetsPath + "primary/";
 export const secondaryPath = tilesetsPath + "secondary/";
 export const animFileExtension = ".png";
