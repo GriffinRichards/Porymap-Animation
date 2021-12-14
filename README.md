@@ -70,5 +70,5 @@ Also a bit of author preference here; I wanted an excuse to test the limits of P
 [pokeemerald]: https://github.com/pret/pokeemerald
 [pokefirered]: https://github.com/pret/pokefirered
 [pokeruby]: https://github.com/pret/pokeruby
-[install]: h
-[guide]: h
+[install]: https://github.com/GriffinRichards/Porymap-Animation/blob/master/INSTALL.md
+[guide]: https://github.com/GriffinRichards/Porymap-Animation/blob/master/GUIDE.md
