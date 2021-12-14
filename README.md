@@ -10,6 +10,15 @@ For help creating your own animations in this plug-in, see [GUIDE.md][guide].
 
 ## FAQ
 
+- [What does this do?](https://github.com/GriffinRichards/Porymap-Animation/blob/master/README.md#what-does-this-do)
+- [How do I use this?](https://github.com/GriffinRichards/Porymap-Animation#how-do-i-use-this)
+- [Will this modify my maps/tilesets/project in any way?](https://github.com/GriffinRichards/Porymap-Animation#will-this-modify-my-mapstilesetsproject-in-any-way)
+- [Nothing is animating, what's wrong?](https://github.com/GriffinRichards/Porymap-Animation#nothing-is-animating-whats-wrong)
+- [Why isn't this animation I added working?](https://github.com/GriffinRichards/Porymap-Animation#why-isnt-this-animation-i-added-working)
+- [Why aren't the border/map connections animating?](https://github.com/GriffinRichards/Porymap-Animation#why-arent-the-bordermap-connections-animating)
+- [Are the animations supposed to slow down/stop when I move the mouse rapidly?](https://github.com/GriffinRichards/Porymap-Animation#are-the-animations-supposed-to-slow-downstop-when-i-move-the-mouse-rapidly)
+- [Why is this not built in to Porymap?](https://github.com/GriffinRichards/Porymap-Animation#why-is-this-not-built-in-to-porymap)
+
 ### What does this do?
 
 This plug-in animates the tiles on maps viewed in Porymap so that you can see what they would look like in-game.
@@ -44,7 +53,7 @@ See the troubleshooting list below.
 
 ### Why isn't this animation I added working?
 
-See if the [GUIDE.md][guide] answers your question. If not, see bullet point 7 in the answer above.
+First make sure animations are working at all (see above). Check the [GUIDE.md][guide] to make sure your new animation follows the correct format. If you're still stuck, see bullet point 7 in the list above.
 
 
 ### Why aren't the border/map connections animating?
