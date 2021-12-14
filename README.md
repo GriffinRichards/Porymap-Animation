@@ -4,7 +4,7 @@ An animation plug-in for [Porymap][porymap], the Pokémon generation 3 decompila
 
 To start using this plug-in, see [INSTALL.md][install].
 
-For help creating your own animations in this plug-in, see [GUIDE.md][guide].
+For help using this plug-in, see [GUIDE.md][guide] or the FAQ below.
 
 ![Animation preview](https://user-images.githubusercontent.com/25753467/145932234-d2f33889-dafc-41d4-a55b-5f8f614fc628.gif)
 
@@ -68,7 +68,7 @@ Sort of. This is an issue with Porymap, not the plug-in, and has to do with what
 
 ### Why is this not built in to Porymap?
 
-There'd be a lot of hassle to do it well. It's the kind of thing that can definitely be done much better as part of Porymap, but is probably best left to personal forks where people can implement it in a way that works for them.
+There'd be a lot of hassle to do it well. It's the kind of thing that can definitely be done much better as part of Porymap, but is probably best left to personal forks where people can implement it in a way that works for them. A plug-in offers some of this freedom without needing to fork Porymap.
 
 Also a bit of author preference here; I wanted an excuse to test the limits of Porymap's API and expand what it has to offer.
 
