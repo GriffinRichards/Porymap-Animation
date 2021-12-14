@@ -7,7 +7,7 @@ After installation, the first thing you should take a look at is the `settings.j
 ----------|-------------|-----------------
 | `toggleShortcut` | The keyboard shortcut for `Toggle Map Animations` | `"Ctrl+A"` |
 | `reloadShortcut` | The keyboard shortcut for `Reload Map Animations` | `""` |
-| `animateOnLaunch` | Whether or not animations should be running when Porymap is first opened | `true` |
+| `animateOnLaunch` | Whether animations should be running when Porymap is first opened | `true` |
 | `tilesetsPath` | The base filepath for all animation images | `"data/tilesets/"` |
 | `primaryPath` | The base filepath for animation images in primary tilesets | `tilesetsPath + "primary/"` |
 | `secondaryPath` | The base filepath for animation images in secondary tilesets | `tilesetsPath + "secondary/"` |
@@ -34,7 +34,7 @@ export const versionData = [rs, frlg, em];
 ```
 These are the files containing the animation data. If you would like to use your own file you need only change the filepath.
 
-By default these files contain animation data for all of the vanilla animations in each game version. If you would like to delete the files for the versions you are not using you may replace all 3 filepaths with the same file, or replace the exports with empty objects, e.g.
+By default these files contain animation data for all the vanilla animations in each game version. If you would like to delete the files for the versions you are not using you may replace all 3 filepaths with the same file, or replace the exports with empty objects, e.g.
 ```
 import {tilesetsData as em}   from './animations_pokeemerald.js';
 export const versionData = [{}, {}, em];
@@ -131,7 +131,7 @@ The animation images for this tileset will therefore come from `data/tilesets/se
 
 ## Creating an animation using `tileset_anims.c`
 
-`src/tileset_anims.c` in your project is where in-game animations are defined. The plug-in will not interact with this file. This is a short explanation of how to derive the above data format from the information in this file. As an an example we'll look at the floating log animations in `gTileset_Pacifidlog`. In this plug-in, its data looks like this:
+`src/tileset_anims.c` in your project is where in-game animations are defined. The plug-in will not interact with this file. This is a short explanation of how to derive the above data format from the information in this file. As an example we'll look at the floating log animations in `gTileset_Pacifidlog`. In this plug-in, its data looks like this:
 ```
             976: { // (0x3D0)
                 folder: "log_bridges",
