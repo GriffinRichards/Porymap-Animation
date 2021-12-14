@@ -1,7 +1,3 @@
-/*
-
-*/
-
 export const tilesetsData = {
     "gTileset_General": {
         folder: "general/anim",
@@ -182,7 +178,7 @@ export const tilesetsData = {
         tileAnimations: {
             976: { // (0x3D0)
                 folder: "log_bridges",
-                frames: ["0", "1", "2"],
+                frames: ["0", "1", "2", "1"],
                 numTiles: 30,
                 interval: 16,
                 imageWidth: 16,

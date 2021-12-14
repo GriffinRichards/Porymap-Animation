@@ -1,9 +1,3 @@
-/*
-
-
-
-*/
-
 export const tilesetsData = {
     "gTileset_General": {
         folder: "general/anim",
