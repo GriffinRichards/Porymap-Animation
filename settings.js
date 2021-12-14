@@ -7,9 +7,9 @@ export const reloadShortcut = ""; // None by default.
 export const animateOnLaunch = true;
 
 // Animation data
-import {tilesetsData as em}   from './animations_emerald.js';
-import {tilesetsData as frlg} from './animations_frlg.js';
-import {tilesetsData as rs}   from './animations_ruby_saph.js';
+import {tilesetsData as em}   from './animations_pokeemerald.js';
+import {tilesetsData as frlg} from './animations_pokefirered.js';
+import {tilesetsData as rs}   from './animations_pokeruby.js';
 export const versionData = [rs, frlg, em];
 
 // Base filepaths

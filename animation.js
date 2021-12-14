@@ -30,7 +30,7 @@ import {
     logUsageInfo,
     refreshTime,
     mapExceptions
-} from "./animation_settings.js"
+} from "./settings.js"
 
 var root = "";
 var animating = false;
