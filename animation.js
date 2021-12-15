@@ -104,6 +104,12 @@ const defaultTimerMax = 55440;
 var timer = 0;
 var timerMax = defaultTimerMax;
 
+const versionMap = {
+    "pokeruby": 0,
+    "pokefirered": 1,
+    "pokeemerald": 2,
+};
+
 
 //====================
 //   Main callbacks
@@ -115,8 +121,8 @@ export function onProjectOpened(projectPath) {
     maxMetatileLayer = map.getNumMetatileLayers();
     maxPrimaryTile = map.getMaxPrimaryTilesetTiles();
     maxSecondaryTile = maxPrimaryTile + map.getMaxSecondaryTilesetTiles();
-    map.registerAction("toggleAnimation", "Toggle map animations", toggleShortcut);
-    map.registerAction("reloadAnimation", "Reload map animations", reloadShortcut)
+    map.registerAction("toggleAnimation", "Toggle Map Animations", toggleShortcut);
+    map.registerAction("reloadAnimation", "Reload Map Animations", reloadShortcut)
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
 }
@@ -739,7 +745,7 @@ function getWrappedMapCoord(coord, max) { return ((coord >= 0) ? coord : (Math.a
 // or constructing the full filepath of each image).
 //-----------------------------------------------------------------------------
 function buildTilesetsData() {
-    tilesetsData = JSON.parse(JSON.stringify(versionData[map.getBaseGameVersion()]));
+    tilesetsData = JSON.parse(JSON.stringify(versionData[versionMap[map.getBaseGameVersion()]]));
     // For each tileset
     for (const tilesetName in tilesetsData) {
         if (!verifyTilesetData(tilesetName)) continue;
