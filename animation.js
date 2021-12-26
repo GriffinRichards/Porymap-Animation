@@ -42,8 +42,6 @@ var mapName;
 var mapWidth;
 var mapHeight;
 
-var mapViewTab = 0;
-
 var tilesetsData;
 
 // 2D array of objects tracking which overlays belong to which map spaces.
@@ -173,9 +171,8 @@ export function onTilesetUpdated(tilesetName) {
 export function onMainTabChanged(oldTab, newTab) {
     if (!oldTab && newTab) {
         // Leaving map tab
-        mapViewTab = map.getMapViewTab();
         setAnimating(false);
-    } else if (oldTab && !newTab && !mapViewTab) {
+    } else if (oldTab && !newTab && !map.getMapViewTab()) {
         // Entering map tab on metatile view
         setAnimating(true);
     }
