@@ -34,6 +34,7 @@ import {
 
 var root = "";
 var animating = false;
+var inAnimatedView = true;
 var animateFuncActive = false;
 var loadAnimations = true;
 var numOverlays = 1;
@@ -119,6 +120,7 @@ export function onProjectOpened(projectPath) {
     maxMetatileLayer = map.getNumMetatileLayers();
     maxPrimaryTile = map.getMaxPrimaryTilesetTiles();
     maxSecondaryTile = maxPrimaryTile + map.getMaxSecondaryTilesetTiles();
+    inAnimatedView = !(map.getMainTab() || map.getMapViewTab());
     map.registerAction("toggleAnimation", "Toggle Map Animations", toggleShortcut);
     map.registerAction("reloadAnimation", "Reload Map Animations", reloadShortcut)
     buildTilesetsData();
@@ -169,23 +171,13 @@ export function onTilesetUpdated(tilesetName) {
 }
 
 export function onMainTabChanged(oldTab, newTab) {
-    if (!oldTab && newTab) {
-        // Leaving map tab
-        setAnimating(false);
-    } else if (oldTab && !newTab && !map.getMapViewTab()) {
-        // Entering map tab on metatile view
-        setAnimating(true);
-    }
+    inAnimatedView = !(newTab || map.getMapViewTab());
+    tryStartAnimation();
 }
 
 export function onMapViewTabChanged(oldTab, newTab) {
-    if (!oldTab && newTab) {
-        // Leaving metatile view
-        setAnimating(false);
-    } else if (oldTab && !newTab) {
-        // Entering metatile view
-        setAnimating(true);
-    }
+    inAnimatedView = !newTab; // Main tab assumed to be map tab
+    tryStartAnimation();
 }
 
 export function onBlockChanged(x, y, prevBlock, newBlock) {
@@ -207,7 +199,7 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
 // animation or 'loadAnimations' to true to reload animation data.
 //-----------------------------------------------------------------------
 export function animate() {
-    if (!animating) {
+    if (!shouldAnimate()) {
         // Stop animation
         animateFuncActive = false;
         hideOverlays();
@@ -236,10 +228,16 @@ export function toggleAnimation() {
 function setAnimating(state) {
     animating = state;
     if (logBasicInfo) log("Animations " + (animating ? "on" : "off"));
-    if (animating) tryStartAnimation();
+    tryStartAnimation();
+}
+
+function shouldAnimate() {
+    return animating && inAnimatedView;
 }
 
 function tryStartAnimation() {
+    if (!shouldAnimate()) return;
+
     // Only call animation loop if it's not already running.
     if (!animateFuncActive) {
         animateFuncActive = true;
