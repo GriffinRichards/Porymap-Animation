@@ -96,7 +96,7 @@ Let's look at the second entry in `tileAnimations`
 - `interval: 8,` is the number of animation updates that will pass before the frame changes. A lower value is a faster animation.
 - `imageWidth: 16,` is the width of each image for this animation.
 
-These are all the basic, required properties to add any for new animation. There are also a few optional properties:
+These are all the basic, required properties to add for any new animation. There are also a few optional properties:
 
 ### Optional animation properties
 - `frameOffsets`: Some animations have duplicates that use the same frames but are offset so that they show different frames at the same time. For example, the other animation in `gTileset_Rustboro` has
