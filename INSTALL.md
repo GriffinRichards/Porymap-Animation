@@ -24,3 +24,5 @@ That's it! If Porymap is currently open relaunch it.
 You should see two new options under `Tools`, `Toggle Map Animations` and `Reload Map Animations`. The toggle will turn the animations on or off, and the reload can be used to restart animation if you encounter an issue.
 
 For information on creating your own animations or changing the animation settings see [GUIDE.md](https://github.com/GriffinRichards/Porymap-Animation/blob/master/GUIDE.md)
+
+If you have questions, see [the FAQ](https://github.com/GriffinRichards/Porymap-Animation#faq).
