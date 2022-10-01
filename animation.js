@@ -496,7 +496,7 @@ function getMetatileAnimData(metatileId) {
             let tilePos = positions.anim.pop();
             let dim = dimensions[tilePos];
             if (!dim) continue;
-            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tiles[tilePos], w: dim.w, h: dim.h, imageOffset: dim.offset});
+            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tiles[tilePos], w: dim.w, h: dim.h, xOffset: dim.xOffset, yOffset: dim.yOffset});
         }
     }
     return metatileData;
@@ -614,7 +614,7 @@ function addAnimTileImage(data, frame, overlayId) {
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
     let hScale = tile.xflip ? -1 : 1;
     let vScale = tile.yflip ? -1 : 1;
-    overlay.createImage(x_posToScreen(data.pos), y_posToScreen(data.pos), filepath, data.w, data.h, data.imageOffset, hScale, vScale, tile.palette, true, overlayId);
+    overlay.createImage(x_posToScreen(data.pos), y_posToScreen(data.pos), filepath, data.w, data.h, data.xOffset, data.yOffset, hScale, vScale, tile.palette, true, overlayId);
 }
 
 //--------------------------------------------------
@@ -642,7 +642,7 @@ function getTileImageDimensions(tiles) {
             if (!isAnimated(tile.tileId)) continue;
             let anim = curTilesetsAnimData[tile.tileId];
             posData[i] = {x: getImageDataX(anim), y: getImageDataY(anim), filepath: anim.filepath, tile: tile};
-            dimensions[tilePos] = {w: tileWidth, h: tileHeight, offset: (posData[i].x + (posData[i].y * anim.imageWidth))};
+            dimensions[tilePos] = {w: tileWidth, h: tileHeight, xOffset: posData[i].x, yOffset: posData[i].y};
         }
 
         // Adjacent sequential positions from the same animations can share an image.
