@@ -6,7 +6,7 @@ To start using this plug-in, see [INSTALL.md][install].
 
 For help using this plug-in, see [GUIDE.md][guide] or the FAQ below.
 
-![Animation preview](https://user-images.githubusercontent.com/25753467/145932234-d2f33889-dafc-41d4-a55b-5f8f614fc628.gif)
+![Animation preview](https://user-images.githubusercontent.com/25753467/170611564-94576b17-1551-4109-873f-e78494550031.gif)
 
 ## FAQ
 
