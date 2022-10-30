@@ -116,19 +116,19 @@ const versionMap = {
 
 export function onProjectOpened(projectPath) {
     root = projectPath + "/";
-    tilesPerMetatile = map.getNumTilesInMetatile();
-    maxMetatileLayer = map.getNumMetatileLayers();
-    maxPrimaryTile = map.getMaxPrimaryTilesetTiles();
-    maxSecondaryTile = maxPrimaryTile + map.getMaxSecondaryTilesetTiles();
-    inAnimatedView = !(map.getMainTab() || map.getMapViewTab());
-    map.registerAction("toggleAnimation", "Toggle Map Animations", toggleShortcut);
-    map.registerAction("reloadAnimation", "Reload Map Animations", reloadShortcut)
+    tilesPerMetatile = constants.tiles_per_metatile;
+    maxMetatileLayer = constants.layers_per_metatile;
+    maxPrimaryTile = constants.max_primary_tiles;
+    maxSecondaryTile = maxPrimaryTile + constants.max_secondary_tiles;
+    inAnimatedView = !(utility.getMainTab() || utility.getMapViewTab());
+    utility.registerAction("toggleAnimation", "Toggle Map Animations", toggleShortcut);
+    utility.registerAction("reloadAnimation", "Reload Map Animations", reloadShortcut)
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
 }
 
 export function onMapOpened(newMapName) {
-    map.clearOverlays();
+    overlay.clear();
     mapName = newMapName;
     mapWidth = map.getWidth();
     mapHeight = map.getHeight();
@@ -136,7 +136,7 @@ export function onMapOpened(newMapName) {
 }
 
 export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
-    map.clearOverlays();
+    overlay.clear();
     mapWidth = newWidth;
     mapHeight = newHeight;
     loadAnimations = true;
@@ -166,12 +166,12 @@ export function onMapShifted(xDelta, yDelta) {
 }
 
 export function onTilesetUpdated(tilesetName) {
-    map.clearOverlays();
+    overlay.clear();
     loadAnimations = true;
 }
 
 export function onMainTabChanged(oldTab, newTab) {
-    inAnimatedView = !(newTab || map.getMapViewTab());
+    inAnimatedView = !(newTab || utility.getMapViewTab());
     tryStartAnimation();
 }
 
@@ -218,7 +218,7 @@ export function animate() {
     updateOverlays(timer);
     if (++timer >= timerMax)
         timer = 0;
-    map.setTimeout(animate, refreshTime);
+    utility.setTimeout(animate, refreshTime);
 }
 
 export function toggleAnimation() {
@@ -247,13 +247,13 @@ function tryStartAnimation() {
 }
 
 function hideOverlays() {
-    map.hideOverlays();
+    overlay.hide();
     for (const interval in staticOverlayMap)
         staticOverlayMap[interval].hidden = true;
 }
 
 function resetAnimation() {
-    map.clearOverlays();
+    overlay.clear();
     numOverlays = 1;
     timer = 0;
     animOverlayMap = {};
@@ -286,15 +286,15 @@ function updateOverlays(timer) {
                 let overlayList = overlayLists[i];
                 let curFrame = (timer / interval) % overlayList.length;
                 let prevFrame = curFrame ? curFrame - 1 : overlayList.length - 1;
-                map.hideOverlay(overlayList[prevFrame]);
-                map.showOverlay(overlayList[curFrame]);
+                overlay.hide(overlayList[prevFrame]);
+                overlay.show(overlayList[curFrame]);
             }
 
             // Show all the unrevealed static overlays associated
             // with animations at this interval
             if (staticOverlayMap[interval] && staticOverlayMap[interval].hidden) {
                 for (let i = 0; i < staticOverlayMap[interval].overlays.length; i++)
-                    map.showOverlay(staticOverlayMap[interval].overlays[i])
+                    overlay.show(staticOverlayMap[interval].overlays[i])
                 staticOverlayMap[interval].hidden = false;
             }
         }
@@ -378,7 +378,7 @@ function getCurrentTileAnimationData() {
 function tryRemoveAnimation(x, y) {
     if (overlayRangeMap[x][y].start != -1) {
         for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
-            map.clearOverlay(i);
+            overlay.clear(i);
     }
 }
 
@@ -496,7 +496,7 @@ function getMetatileAnimData(metatileId) {
             let tilePos = positions.anim.pop();
             let dim = dimensions[tilePos];
             if (!dim) continue;
-            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tiles[tilePos], w: dim.w, h: dim.h, imageOffset: dim.offset});
+            metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tiles[tilePos], w: dim.w, h: dim.h, xOffset: dim.xOffset, yOffset: dim.yOffset});
         }
     }
     return metatileData;
@@ -563,7 +563,7 @@ function addAnimTileFrames(x, y, data) {
 
     // Add frame images for this tile
     // NOTE: Nearly all of the animation load time comes from this loop, primarily
-    // the calls to map.createImage in addAnimTileImage. The optimization for repeated
+    // the calls to overlay.createImage in addAnimTileImage. The optimization for repeated
     // frames (only creating each frame image once) is almost a wash, because very few
     // animations have repeat frames, so the overhead slows down loading on many maps.
     // Maps that do have animations with repeat frames however (Route 117 especially)
@@ -581,7 +581,7 @@ function addAnimTileFrames(x, y, data) {
         if (newOverlaySet) {
             overlays.push(overlayId);
             if (newFrame) {
-                map.hideOverlay(overlayId);
+                overlay.hide(overlayId);
                 setOverlayMapPos(x, y, overlayId);
             }
         }
@@ -612,7 +612,9 @@ function addAnimTileFrames(x, y, data) {
 function addAnimTileImage(data, frame, overlayId) {
     let tile = data.tile;
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
-    map.createImage(x_posToScreen(data.pos), y_posToScreen(data.pos), filepath, data.w, data.h, data.imageOffset, tile.xflip, tile.yflip, tile.palette, true, overlayId);
+    let hScale = tile.xflip ? -1 : 1;
+    let vScale = tile.yflip ? -1 : 1;
+    overlay.createImage(x_posToScreen(data.pos), y_posToScreen(data.pos), filepath, data.w, data.h, data.xOffset, data.yOffset, hScale, vScale, tile.palette, true, overlayId);
 }
 
 //--------------------------------------------------
@@ -620,8 +622,8 @@ function addAnimTileImage(data, frame, overlayId) {
 //--------------------------------------------------
 function addStaticTileImage(data) {
     let tile = data.tile;
-    map.hideOverlay(numOverlays);
-    map.addTileImage(x_posToScreen(data.pos), y_posToScreen(data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
+    overlay.hide(numOverlays);
+    overlay.addTileImage(x_posToScreen(data.pos), y_posToScreen(data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
 }
 
 //----------------------------------------------------------------
@@ -640,7 +642,7 @@ function getTileImageDimensions(tiles) {
             if (!isAnimated(tile.tileId)) continue;
             let anim = curTilesetsAnimData[tile.tileId];
             posData[i] = {x: getImageDataX(anim), y: getImageDataY(anim), filepath: anim.filepath, tile: tile};
-            dimensions[tilePos] = {w: tileWidth, h: tileHeight, offset: (posData[i].x + (posData[i].y * anim.imageWidth))};
+            dimensions[tilePos] = {w: tileWidth, h: tileHeight, xOffset: posData[i].x, yOffset: posData[i].y};
         }
 
         // Adjacent sequential positions from the same animations can share an image.
@@ -724,7 +726,7 @@ function x_mapToScreen(x) { return x * metatileWidth; }
 function y_mapToScreen(y) { return y * metatileHeight; }
 function x_posToScreen(tilePos) { return (tilePos % metatileTileWidth) * tileWidth; }
 function y_posToScreen(tilePos) { return Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight; }
-function setOverlayMapPos(x, y, overlayId) { map.setOverlayPosition(x_mapToScreen(x), y_mapToScreen(y), overlayId); }
+function setOverlayMapPos(x, y, overlayId) { overlay.setPosition(x_mapToScreen(x), y_mapToScreen(y), overlayId); }
 function getWrappedMapCoord(coord, max) { return ((coord >= 0) ? coord : (Math.abs(max - Math.abs(coord)))) % max; }
 
 
@@ -740,7 +742,7 @@ function getWrappedMapCoord(coord, max) { return ((coord >= 0) ? coord : (Math.a
 // or constructing the full filepath of each image).
 //-----------------------------------------------------------------------------
 function buildTilesetsData() {
-    tilesetsData = JSON.parse(JSON.stringify(versionData[versionMap[map.getBaseGameVersion()]]));
+    tilesetsData = JSON.parse(JSON.stringify(versionData[versionMap[constants.base_game_version]]));
     // For each tileset
     for (const tilesetName in tilesetsData) {
         if (!verifyTilesetData(tilesetName)) continue;
@@ -970,15 +972,15 @@ function verifyTileLimit(tileId, tilesetName) {
 //==================
 
 function log(message) {
-    map.log(logPrefix + message);
+    utility.log(logPrefix + message);
 }
 
 function warn(message) {
-    map.warn(logPrefix + message);
+    utility.warn(logPrefix + message);
 }
 
 function error(message) {
-    map.error(logPrefix + message);
+    utility.error(logPrefix + message);
 }
 
 //----------------------------------------------------

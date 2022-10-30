@@ -1,8 +1,8 @@
 ## Prerequisites
 
-Porymap release version 4.5.0 is required. Porymap can be [downloaded here](https://github.com/huderlem/porymap/releases).
+Porymap release version 5.0.0 is required. Porymap can be [downloaded here](https://github.com/huderlem/porymap/releases).
 
-If you are building your own copy of Porymap between 4.5.0 and the unreleased 5.0.0 you will need to clone [the porymap-5 branch of this script instead](https://github.com/GriffinRichards/Porymap-Animation/tree/porymap-5).
+If you are using Porymap version 4.5.0, you can instead download the [older version of this script](https://github.com/GriffinRichards/Porymap-Animation/releases/tag/v1.0.0).
 
 You are assumed to already have a Pokémon generation 3 decompilation project set up. If you do not, see the `INSTALL.md` at [pokeemerald](https://github.com/pret/pokeemerald), [pokefirered](https://github.com/pret/pokefirered) or [pokeruby](https://github.com/pret/pokeruby), or the fork of your choice.
 There is very little this plug-in needs from your project, and what little it does (filepaths) can be changed in `settings.js` and `animations_<version>.js`, so if your project works with a compatible version of Porymap it should work with this plug-in.
