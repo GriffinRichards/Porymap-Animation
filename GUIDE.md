@@ -99,12 +99,12 @@ Let's look at the second entry in `tileAnimations`
 These are all the basic, required properties to add for any new animation. There are also a few optional properties:
 
 ### Optional animation properties
-- `frameOffsets`: Some animations have duplicates that use the same frames but are offset so that they show different frames at the same time. For example, the other animation in `gTileset_Rustboro` has
+- `frameOffsets`: Some tile animations are identical to another tile animation but start at a different time. For example, in `gTileset_Rustboro` the `windy_water` animation is repeated in-game to produce a wave ripple effect. It has the following:
 ```
                 frames: ["0", "1", "2", "3", "4", "5", "6", "7"],
                 frameOffsets: [1, 2, 3, 4, 5, 6, 7],
 ```
-This creates copies of the original animation starting after its last tile and with the frames shifted. This allows the creation of animations with an undulating effect. With the above `frameOffsets` there would be duplicate animations with the following frames:
+For each value `n` in `frameOffsets`, the animation will be duplicated and start `n` frames earlier. With the above `frameOffsets` there would be duplicate animations with the following frames:
 ```
 frames: ["7", "0", "1", "2", "3", "4", "5", "6"], // Offset 1
 frames: ["6", "7", "0", "1", "2", "3", "4", "5"], // Offset 2
@@ -114,6 +114,7 @@ frames: ["3", "4", "5", "6", "7", "0", "1", "2"], // Offset 5
 frames: ["2", "3", "4", "5", "6", "7", "0", "1"], // Offset 6
 frames: ["1", "2", "3", "4", "5", "6", "7", "0"], // Offset 7
 ```
+Additionally, it will be assumed that each offset animation has `numTiles` tiles of its own that start immediately after the previous group of tiles. For example the original animation has 4 tiles starting at tile 640, so the animation at the first offset should have 4 tiles starting at tile 644.
 
 
 - `externalFolder`: Normally the `folder` for an animation is assumed to be at the base path of the tileset it belongs to. If you'd like the path to instead be treated as absolute (starting from the project root) you can add `externalFolder: true,` to the animation. For example, in `gTileset_Lavaridge` tile 672 has
