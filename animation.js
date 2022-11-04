@@ -452,7 +452,7 @@ function tryAddAnimation(x, y) {
             let interval = curAnimIntervals[i];
             if (staticOverlayMap[interval] == undefined)
                 staticOverlayMap[interval] = {hidden: true, overlays: []};
-            staticOverlayMap[interval].overlays.push(curStaticOverlays);
+            staticOverlayMap[interval].overlays = staticOverlayMap[interval].overlays.concat(curStaticOverlays);
             staticOverlayMap[interval].hidden = true;
         }
     }
@@ -474,10 +474,12 @@ function getMetatileAnimData(metatileId) {
     let metatileData = [];
     let tiles = map.getMetatileTiles(metatileId);
     if (!tiles) return metatileData;
+    if (logDebugInfo) log("Scanning " + metatileId);
     let positions = scanTiles(tiles);
 
     // No animating tiles, end early
     if (positions.anim.length == 0) return metatileData;
+    debug_printObject(positions);
 
     let dimensions = getTileImageDimensions(tiles);
 
@@ -499,6 +501,7 @@ function getMetatileAnimData(metatileId) {
             metatileData.push({animates: true, pos: tilePos, layer: layer, tile: tiles[tilePos], w: dim.w, h: dim.h, xOffset: dim.xOffset, yOffset: dim.yOffset});
         }
     }
+    debug_printObjectArr(metatileData);
     return metatileData;
 }
 
@@ -981,6 +984,17 @@ function warn(message) {
 
 function error(message) {
     utility.error(logPrefix + message);
+}
+
+function debug_printObject(object) {
+    if (!logDebugInfo) return;
+    log(JSON.stringify(object));
+}
+
+function debug_printObjectArr(object) {
+    if (!logDebugInfo) return;
+    for (var property in object)
+        log(JSON.stringify(object[property]));
 }
 
 //----------------------------------------------------
