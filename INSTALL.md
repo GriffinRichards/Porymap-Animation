@@ -1,6 +1,6 @@
 ## Prerequisites
 
-Porymap release version 5.0.0 is required. Porymap can be [downloaded here](https://github.com/huderlem/porymap/releases).
+Porymap release version 5.0.0 or above is required. Porymap can be [downloaded here](https://github.com/huderlem/porymap/releases).
 
 If you are using Porymap version 4.5.0, you can instead download the [older version of this script](https://github.com/GriffinRichards/Porymap-Animation/releases/tag/v1.0.0).
 

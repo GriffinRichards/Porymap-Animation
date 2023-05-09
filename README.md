@@ -53,12 +53,11 @@ See the troubleshooting list below.
 
 ### Why isn't this animation I added working?
 
-First make sure animations are working at all (see above). Check the [GUIDE.md][guide] to make sure your new animation follows the correct format. If you're still stuck, see bullet point 7 in the list above.
-
+First make sure animations are working at all (see above). Check the [GUIDE.md][guide] to make sure your new animation follows the correct format. If you're still stuck you can join pret's [Discord](https://discord.gg/d5dubZ3) and ask for help in the `#porymap` channel.
 
 ### Why aren't the border/map connections animating?
 
-Porymap's API doesn't currently support reading tiles from the border or the connecting maps, which is necessary to create animations there. Extending the API to do this for borders is trivial, but is less so for connecting maps, and animating one but not the other would look strange. I may decide to add support for this in the future.
+Porymap's API doesn't currently support reading tiles from the connecting maps, which is necessary to create animations there. The API does support reading tiles in the current map's border, but animating the border and not connecting maps would look strange. I may decide to add support for this in the future.
 
 
 ### Are the animations supposed to slow down/stop when I move the mouse rapidly?
