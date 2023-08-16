@@ -37,7 +37,7 @@ var animating = false;
 var inAnimatedView = true;
 var animateFuncActive = false;
 var loadAnimations = true;
-var numOverlays = 1;
+var numLayers = 1;
 
 var mapName;
 var mapWidth;
@@ -45,22 +45,22 @@ var mapHeight;
 
 var tilesetsData;
 
-// 2D array of objects tracking which overlays belong to which map spaces.
-// It's accessed with x/y map coordinates, e.g. overlayRangeMap[x][y], and
+// 2D array of objects tracking which layers belong to which map spaces.
+// It's accessed with x/y map coordinates, e.g. layerRangeMap[x][y], and
 // returns an object with a 'start' and 'end' property which are the first
-// and max overlay used by that map space. This is used to clear the overlays
+// and max layer used by that map space. This is used to clear the layers
 // for a space when it's drawn on.
-var overlayRangeMap;
+var layerRangeMap;
 
-// These objects map overlays to the intervals of the animation they're associated with.
-// Each property is an interval. For animOverlayMap, each value is an array of overlay ids; each
-// overlay is only associated with 1 interval. For staticOverlayMap, each value is an object
-// containing an array of overlay ids and a value for whether or not they are currently hidden.
-// Static overlays are associated with every interval that exists on the map space they are
+// These objects map layers to the intervals of the animation they're associated with.
+// Each property is an interval. For animLayerMap, each value is an array of layer ids; each
+// layer is only associated with 1 interval. For staticLayerMap, each value is an object
+// containing an array of layer ids and a value for whether or not they are currently hidden.
+// Static layers are associated with every interval that exists on the map space they are
 // associated with. The array below them is for temporarily tracking which intervals are being
-// used in order to build staticOverlayMap.
-var animOverlayMap = {};
-var staticOverlayMap = {};
+// used in order to build staticLayerMap.
+var animLayerMap = {};
+var staticLayerMap = {};
 var curAnimIntervals = [];
 
 // Object for caching data about how to build an animation for a given metatile so
@@ -74,10 +74,10 @@ var metatileCache = {};
 var curTilesetsAnimData = {};
 
 // Object for tracking which animations have been encountered already on the current
-// metatile layer so that they can be grouped together on the same overlays.
+// metatile layer so that they can be grouped together on the same layers.
 // It takes both the interval and number of frames as properties, and the returned
-// value is the overlay the first frame belongs to.
-var curAnimToOverlayMap = {};
+// value is the layer the first frame belongs to.
+var curAnimToLayerMap = {};
 
 // Basic tile/metatile size information
 const tileWidth = 8;
@@ -145,24 +145,24 @@ export function onMapResized(oldWidth, oldHeight, newWidth, newHeight) {
 export function onMapShifted(xDelta, yDelta) {
     if (xDelta == 0 && yDelta == 0) return;
 
-    // Move and wrap the overlays and reconstruct overlayRangeMap
+    // Move and wrap the layers and reconstruct layerRangeMap
     let newMap = {};
     for (let x = 0; x < mapWidth; x++) {
         if (!newMap[x]) newMap[x] = {};
         for (let y = 0; y < mapHeight; y++) {
             if (!newMap[x][y]) newMap[x][y] = {start: -1, end: -1};
-            let overlayStart = overlayRangeMap[x][y].start;
-            if (overlayStart == -1) continue;
+            let layerStart = layerRangeMap[x][y].start;
+            if (layerStart == -1) continue;
             let newX = getWrappedMapCoord(x + xDelta, mapWidth);
             let newY = getWrappedMapCoord(y + yDelta, mapHeight);
-            let overlayEnd = overlayRangeMap[x][y].end;
-            for (let i = overlayStart; i < overlayEnd; i++)
-                setOverlayMapPos(newX, newY, i);
+            let layerEnd = layerRangeMap[x][y].end;
+            for (let i = layerStart; i < layerEnd; i++)
+                setLayerMapPos(newX, newY, i);
             if (!newMap[newX]) newMap[newX] = {}
-            newMap[newX][newY] = {start: overlayStart, end: overlayEnd};
+            newMap[newX][newY] = {start: layerStart, end: layerEnd};
         }
     }
-    overlayRangeMap = newMap;
+    layerRangeMap = newMap;
 }
 
 export function onTilesetUpdated(tilesetName) {
@@ -202,7 +202,7 @@ export function animate() {
     if (!shouldAnimate()) {
         // Stop animation
         animateFuncActive = false;
-        hideOverlays();
+        hideOverlay();
         return;
     }
     if (loadAnimations) {
@@ -211,11 +211,11 @@ export function animate() {
         timerMax = calculateTimerMax();
         if (logDebugInfo) log("Timer max: " + timerMax);
         if (logUsageInfo) {
-            log("Overlays used: " + (numOverlays - 1));
-            debug_printOverlays();
+            log("Layers used: " + (numLayers - 1));
+            debug_printLayers();
         }
     }
-    updateOverlays(timer);
+    updateOverlay(timer);
     if (++timer >= timerMax)
         timer = 0;
     utility.setTimeout(animate, refreshTime);
@@ -246,18 +246,18 @@ function tryStartAnimation() {
     }
 }
 
-function hideOverlays() {
+function hideOverlay() {
     overlay.hide();
-    for (const interval in staticOverlayMap)
-        staticOverlayMap[interval].hidden = true;
+    for (const interval in staticLayerMap)
+        staticLayerMap[interval].hidden = true;
 }
 
 function resetAnimation() {
     overlay.clear();
-    numOverlays = 1;
+    numLayers = 1;
     timer = 0;
-    animOverlayMap = {};
-    staticOverlayMap = {};
+    animLayerMap = {};
+    staticLayerMap = {};
     metatileCache = {};
 }
 
@@ -271,31 +271,31 @@ export function reloadAnimation() {
 
 //--------------------------------------------------------------------
 // This function is responsible for visually updating the animation.
-// It does this by selectively hiding and showing overlays that each
+// It does this by selectively hiding and showing layers that each
 // have different tile frame images on them.
 //--------------------------------------------------------------------
-function updateOverlays(timer) {
+function updateOverlay(timer) {
     // For each timing interval of the current animations
-    for (const interval in animOverlayMap) {
+    for (const interval in animLayerMap) {
         if (timer % interval == 0) {
             // For each tile animating at this interval,
             // hide the previous frame and show the next frame
-            let overlayLists = animOverlayMap[interval];
-            if (!overlayLists) continue;
-            for (let i = 0; i < overlayLists.length; i++) {
-                let overlayList = overlayLists[i];
-                let curFrame = (timer / interval) % overlayList.length;
-                let prevFrame = curFrame ? curFrame - 1 : overlayList.length - 1;
-                overlay.hide(overlayList[prevFrame]);
-                overlay.show(overlayList[curFrame]);
+            let layerLists = animLayerMap[interval];
+            if (!layerLists) continue;
+            for (let i = 0; i < layerLists.length; i++) {
+                let layerList = layerLists[i];
+                let curFrame = (timer / interval) % layerList.length;
+                let prevFrame = curFrame ? curFrame - 1 : layerList.length - 1;
+                overlay.hide(layerList[prevFrame]);
+                overlay.show(layerList[curFrame]);
             }
 
-            // Show all the unrevealed static overlays associated
+            // Show all the unrevealed static layers associated
             // with animations at this interval
-            if (staticOverlayMap[interval] && staticOverlayMap[interval].hidden) {
-                for (let i = 0; i < staticOverlayMap[interval].overlays.length; i++)
-                    overlay.show(staticOverlayMap[interval].overlays[i])
-                staticOverlayMap[interval].hidden = false;
+            if (staticLayerMap[interval] && staticLayerMap[interval].hidden) {
+                for (let i = 0; i < staticLayerMap[interval].layers.length; i++)
+                    overlay.show(staticLayerMap[interval].layers[i])
+                staticLayerMap[interval].hidden = false;
             }
         }
     }
@@ -339,9 +339,9 @@ function loadMapAnimations() {
     }
     debug_printAnimData(curTilesetsAnimData);
 
-    overlayRangeMap = {};
+    layerRangeMap = {};
     for (let x = 0; x < mapWidth; x++) {
-        overlayRangeMap[x] = {};
+        layerRangeMap[x] = {};
         for (let y = 0; y < mapHeight; y++)
             tryAddAnimation(x, y);
     }
@@ -371,13 +371,13 @@ function getCurrentTileAnimationData() {
 
 //----------------------------------------------------------------------------
 // Removes the animation (if it exists) at the given map coordinates.
-// Overlays are not re-used unless animations are fully reloaded, so this
-// doesn't bother to remove overlays from the overlay maps. Over a very long
+// Layers are not re-used unless animations are fully reloaded, so this
+// doesn't bother to remove layers from the layer maps. Over a very long
 // period this could impact performance, but it keeps drawing speed high.
 //----------------------------------------------------------------------------
 function tryRemoveAnimation(x, y) {
-    if (overlayRangeMap[x][y].start != -1) {
-        for (let i = overlayRangeMap[x][y].start; i < overlayRangeMap[x][y].end; i++)
+    if (layerRangeMap[x][y].start != -1) {
+        for (let i = layerRangeMap[x][y].start; i < layerRangeMap[x][y].end; i++)
             overlay.clear(i);
     }
 }
@@ -387,11 +387,11 @@ function tryRemoveAnimation(x, y) {
 // If the metatile at this position has not been encountered yet,
 // examine it to determine if and how it animates, then cache the
 // result. If it should animate, add the images and save which
-// overlays were used.
+// layers were used.
 //-----------------------------------------------------------------
 function tryAddAnimation(x, y) {
-    overlayRangeMap[x][y] = {start: -1, end: -1};
-    let curStaticOverlays = [];
+    layerRangeMap[x][y] = {start: -1, end: -1};
+    let curStaticLayers = [];
     let metatileId = map.getMetatileId(x, y);
     let metatileData = metatileCache[metatileId];
     
@@ -405,37 +405,37 @@ function tryAddAnimation(x, y) {
     let tiles = metatileData.tiles;
     let len = metatileData.length;
 
-    // Save starting overlay for this map space
-    overlayRangeMap[x][y].start = numOverlays;
+    // Save starting layer for this map space
+    layerRangeMap[x][y].start = numLayers;
     curAnimIntervals = [];
 
     // Add tile images.
     // metatileData is sorted first by layer, then by whether the tile is static or animated.
-    // Most of the way this is laid out is to simplify tracking overlays for allowing as many
-    // images as possible to be grouped together on the same overlays.
+    // Most of the way this is laid out is to simplify tracking layers for allowing as many
+    // images as possible to be grouped together on the same layers.
     let i = 0;
     let layer = -1;
     while (i < len) {
-        // Draw static tiles on a shared overlay until we hit an animated tile or the end of the array
-        let newStaticOverlay = false;
+        // Draw static tiles on a shared layer until we hit an animated tile or the end of the array
+        let newStaticLayer = false;
         while(metatileData[i] && !metatileData[i].animates) {
             addStaticTileImage(metatileData[i]);
-            newStaticOverlay = true;
+            newStaticLayer = true;
             i++;
         }
-        // Added static tile images, save and increment overlays
-        if (newStaticOverlay) {
-            setOverlayMapPos(x, y, numOverlays);
-            curStaticOverlays.push(numOverlays);
-            numOverlays++;
+        // Added static tile images, save and increment layers
+        if (newStaticLayer) {
+            setLayerMapPos(x, y, numLayers);
+            curStaticLayers.push(numLayers);
+            numLayers++;
         }
 
         // Draw animated tiles until we hit a static tile or the end of the array.
-        // Overlay usage is handled already by addAnimTileFrames / curAnimToOverlayMap
+        // Layer usage is handled already by addAnimTileFrames / curAnimToLayerMap
         while (metatileData[i] && metatileData[i].animates) {
             // Reset cache between layers
             if (metatileData[i].layer != layer) {
-                curAnimToOverlayMap = {};
+                curAnimToLayerMap = {};
                 layer = metatileData[i].layer;
             }
             addAnimTileFrames(x, y, metatileData[i]);
@@ -443,23 +443,23 @@ function tryAddAnimation(x, y) {
         }
     }
 
-    // Save static overlays to array for each animation interval this metatile has.
-    // Whichever interval occurs next will reveal the static overlays.
-    // This is done so the neither the animated or static overlays are ever revealed
+    // Save static layers to array for each animation interval this metatile has.
+    // Whichever interval occurs next will reveal the static layers.
+    // This is done so the neither the animated or static layers are ever revealed
     // without the other, which could result in visual mistakes like flickering.
-    if (curStaticOverlays.length != 0) {
+    if (curStaticLayers.length != 0) {
         for (let i = 0; i < curAnimIntervals.length; i++) {
             let interval = curAnimIntervals[i];
-            if (staticOverlayMap[interval] == undefined)
-                staticOverlayMap[interval] = {hidden: true, overlays: []};
-            staticOverlayMap[interval].overlays = staticOverlayMap[interval].overlays.concat(curStaticOverlays);
-            staticOverlayMap[interval].hidden = true;
+            if (staticLayerMap[interval] == undefined)
+                staticLayerMap[interval] = {hidden: true, layers: []};
+            staticLayerMap[interval].layers = staticLayerMap[interval].layers.concat(curStaticLayers);
+            staticLayerMap[interval].hidden = true;
         }
     }
 
-    // Save end of overlay range for this map space
-    overlayRangeMap[x][y].end = numOverlays;
-    if (logUsageInfo) log("Using overlays " + overlayRangeMap[x][y].start + "-" + (overlayRangeMap[x][y].end - 1) + " at " + x + "," + y);
+    // Save end of layer range for this map space
+    layerRangeMap[x][y].end = numLayers;
+    if (logUsageInfo) log("Using layers " + layerRangeMap[x][y].start + "-" + (layerRangeMap[x][y].end - 1) + " at " + x + "," + y);
 }
 
 //------------------------------------------------------------------------
@@ -546,7 +546,7 @@ function isAnimated(tileId) {
 //------------------------------------------------------------------
 // Creates the images for each frame of an animated tile at the
 // given position. Most of its job is determining (and saving) which
-// overlays to use for the images, and it passes the actual image
+// layers to use for the images, and it passes the actual image
 // creation off to addAnimTileImage.
 //------------------------------------------------------------------
 function addAnimTileFrames(x, y, data) {
@@ -554,15 +554,15 @@ function addAnimTileFrames(x, y, data) {
     let frames = curTilesetsAnimData[tileId].frames;
     let interval = curTilesetsAnimData[tileId].interval;
 
-    // Get which overlay to start creating the frame images on.
+    // Get which layer to start creating the frame images on.
     // If there is already a set of images on this layer that share
-    // an interval and number of frames, just use the same overlays.
-    if (!curAnimToOverlayMap[interval]) curAnimToOverlayMap[interval] = {};
-    let baseOverlayId = curAnimToOverlayMap[interval][frames.length];
-    let newOverlaySet = (baseOverlayId == undefined);
+    // an interval and number of frames, just use the same layers.
+    if (!curAnimToLayerMap[interval]) curAnimToLayerMap[interval] = {};
+    let baseLayerId = curAnimToLayerMap[interval][frames.length];
+    let newLayerSet = (baseLayerId == undefined);
 
-    // If it's a new interval+frame count, start the overlay usage at the next available overlay (and save to cache)
-    if (newOverlaySet) baseOverlayId = curAnimToOverlayMap[interval][frames.length] = numOverlays;
+    // If it's a new interval+frame count, start the layer usage at the next available layer (and save to cache)
+    if (newLayerSet) baseLayerId = curAnimToLayerMap[interval][frames.length] = numLayers;
 
     // Add frame images for this tile
     // NOTE: Nearly all of the animation load time comes from this loop, primarily
@@ -571,40 +571,40 @@ function addAnimTileFrames(x, y, data) {
     // animations have repeat frames, so the overhead slows down loading on many maps.
     // Maps that do have animations with repeat frames however (Route 117 especially)
     // benefit significantly.
-    let overlays = [];
-    let frameOverlayMap = {};
+    let layers = [];
+    let frameLayerMap = {};
     for (let i = 0; i < frames.length; i++) {
-        // Get overlay to use for this frame. Repeated frames will share an overlay/image
-        let overlayId = frameOverlayMap[frames[i]];
-        let newFrame = (overlayId == undefined);
-        if (newFrame) overlayId = baseOverlayId++;
+        // Get layer to use for this frame. Repeated frames will share a layer/image
+        let layerId = frameLayerMap[frames[i]];
+        let newFrame = (layerId == undefined);
+        if (newFrame) layerId = baseLayerId++;
 
-        // If this a new set of overlays, save them to an array so they can be tracked for animation.
-        // Also hide the overlay; animated frame images are hidden until their frame is active
-        if (newOverlaySet) {
-            overlays.push(overlayId);
+        // If this a new set of layers, save them to an array so they can be tracked for animation.
+        // Also hide the layer; animated frame images are hidden until their frame is active
+        if (newLayerSet) {
+            layers.push(layerId);
             if (newFrame) {
-                overlay.hide(overlayId);
-                setOverlayMapPos(x, y, overlayId);
+                overlay.hide(layerId);
+                setLayerMapPos(x, y, layerId);
             }
         }
 
         // Create new frame image
         if (newFrame) {
-            addAnimTileImage(data, i, overlayId);
-            frameOverlayMap[frames[i]] = overlayId;
+            addAnimTileImage(data, i, layerId);
+            frameLayerMap[frames[i]] = layerId;
         }
     }
 
-    if (!newOverlaySet) return;
+    if (!newLayerSet) return;
 
-    // Update overlay usage
-    numOverlays = baseOverlayId;
+    // Update layer usage
+    numLayers = baseLayerId;
 
-    // Add overlays/interval to animation map
-    if (animOverlayMap[interval] == undefined)
-        animOverlayMap[interval] = [];
-    animOverlayMap[interval].push(overlays);
+    // Add layers/interval to animation map
+    if (animLayerMap[interval] == undefined)
+        animLayerMap[interval] = [];
+    animLayerMap[interval].push(layers);
     if (!curAnimIntervals.includes(interval))
         curAnimIntervals.push(interval);
 }
@@ -612,12 +612,12 @@ function addAnimTileFrames(x, y, data) {
 //-------------------------------------------------------------------
 // Create an image for one frame of an animated tile (or tile group)
 //-------------------------------------------------------------------
-function addAnimTileImage(data, frame, overlayId) {
+function addAnimTileImage(data, frame, layerId) {
     let tile = data.tile;
     let filepath = curTilesetsAnimData[tile.tileId].filepaths[frame];
     let hScale = tile.xflip ? -1 : 1;
     let vScale = tile.yflip ? -1 : 1;
-    overlay.createImage(x_posToScreen(data.pos), y_posToScreen(data.pos), filepath, data.w, data.h, data.xOffset, data.yOffset, hScale, vScale, tile.palette, true, overlayId);
+    overlay.createImage(x_posToScreen(data.pos), y_posToScreen(data.pos), filepath, data.w, data.h, data.xOffset, data.yOffset, hScale, vScale, tile.palette, true, layerId);
 }
 
 //--------------------------------------------------
@@ -625,8 +625,8 @@ function addAnimTileImage(data, frame, overlayId) {
 //--------------------------------------------------
 function addStaticTileImage(data) {
     let tile = data.tile;
-    overlay.hide(numOverlays);
-    overlay.addTileImage(x_posToScreen(data.pos), y_posToScreen(data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numOverlays);
+    overlay.hide(numLayers);
+    overlay.addTileImage(x_posToScreen(data.pos), y_posToScreen(data.pos), tile.tileId, tile.xflip, tile.yflip, tile.palette, true, numLayers);
 }
 
 //----------------------------------------------------------------
@@ -720,8 +720,8 @@ function canCombine_Vertical(data, a, b) {
 // The below functions all deal with coordinate conversions.
 // - mapToScreen takes a map coordinate and returns a pixel coordinate.
 // - posToScreen takes a tile position and returns a pixel offset.
-// - setOverlayMapPos takes map coordinates and an overlay id and sets
-//   the pixel coordinates of that overlay.
+// - setLayerMapPos takes map coordinates and a layer id and sets
+//   the pixel coordinates of that layer.
 // - getWrappedMapCoord takes a map coordinate and a max width or height
 //   and returns a bounded map coordinate.
 //------------------------------------------------------------------------
@@ -729,7 +729,7 @@ function x_mapToScreen(x) { return x * metatileWidth; }
 function y_mapToScreen(y) { return y * metatileHeight; }
 function x_posToScreen(tilePos) { return (tilePos % metatileTileWidth) * tileWidth; }
 function y_posToScreen(tilePos) { return Math.floor((tilePos % tilesPerLayer) / metatileTileWidth) * tileHeight; }
-function setOverlayMapPos(x, y, overlayId) { overlay.setPosition(x_mapToScreen(x), y_mapToScreen(y), overlayId); }
+function setLayerMapPos(x, y, layerId) { overlay.setPosition(x_mapToScreen(x), y_mapToScreen(y), layerId); }
 function getWrappedMapCoord(coord, max) { return ((coord >= 0) ? coord : (Math.abs(max - Math.abs(coord)))) % max; }
 
 
@@ -1029,22 +1029,22 @@ function debug_printAnimData(anims) {
 }
 
 //------------------------------------------------
-// Log all the overlays being used for animation
+// Log all the layers being used for animation
 // and which timing interval they belong to.
 //------------------------------------------------
-function debug_printOverlays() {
+function debug_printLayers() {
     if (!logUsageInfo) return;
-    for (const interval in animOverlayMap) {
-        log("Overlays animating at interval of " + interval + ":");
-        let animOverlays = animOverlayMap[interval];
-        for (let j = 0; j < animOverlays.length; j++) {
-            log(animOverlays[j]);
+    for (const interval in animLayerMap) {
+        log("Layers animating at interval of " + interval + ":");
+        let animLayers = animLayerMap[interval];
+        for (let j = 0; j < animLayers.length; j++) {
+            log(animLayers[j]);
         }
-        log("Static overlays associated with interval " + interval + ":");
-        let staticOverlays = staticOverlayMap[interval];
-        if (!staticOverlays) continue;
-        for (let j = 0; j < staticOverlays.overlays.length; j++) {
-            log(staticOverlays.overlays[j]);
+        log("Static layers associated with interval " + interval + ":");
+        let staticLayers = staticLayerMap[interval];
+        if (!staticLayers) continue;
+        for (let j = 0; j < staticLayers.layers.length; j++) {
+            log(staticLayers.layers[j]);
         }
     }
 }
