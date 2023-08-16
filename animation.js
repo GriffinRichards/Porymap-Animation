@@ -226,11 +226,7 @@ export function animate() {
 }
 
 export function toggleAnimation() {
-    setAnimating(!animating);
-}
-
-function setAnimating(state) {
-    animating = state;
+    animating = !animating;
     if (logBasicInfo) log("Animations " + (animating ? "on" : "off"));
     tryStartAnimation();
 }
@@ -266,11 +262,13 @@ function resetAnimation() {
 }
 
 export function reloadAnimation() {
+    let temp = animating;
     animating = false;
     resetAnimation();
     buildTilesetsData();
     loadAnimations = true;
-    setAnimating(animateOnLaunch);
+    animating = temp;
+    tryStartAnimation();
 }
 
 //--------------------------------------------------------------------
