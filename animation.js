@@ -121,7 +121,11 @@ export function onProjectOpened(projectPath) {
     maxPrimaryTile = constants.max_primary_tiles;
     maxSecondaryTile = maxPrimaryTile + constants.max_secondary_tiles;
     inAnimatedView = !(utility.getMainTab() || utility.getMapViewTab());
-    utility.registerAction("toggleAnimation", "Toggle Map Animations", toggleShortcut);
+    if (verifyPorymapVersion(5,1,1)) { // registerToggleAction was introduced in 5.1.1
+        utility.registerToggleAction("toggleAnimation", "Toggle Map Animations", toggleShortcut, animateOnLaunch);
+    } else {
+        utility.registerAction("toggleAnimation", "Toggle Map Animations", toggleShortcut);
+    }
     utility.registerAction("reloadAnimation", "Reload Map Animations", reloadShortcut)
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
@@ -967,6 +971,19 @@ function verifyTileLimit(tileId, tilesetName) {
         }
     }
     return true;
+}
+
+//---------------------------------------------------------------------------
+// Verify if the user's version of Porymap is at least as new as the version
+// numbers provided. Returns false if the user's version is older than the
+// the provided version. Otherwise returns true.
+//---------------------------------------------------------------------------
+function verifyPorymapVersion(major, minor, patch) {
+    if (constants.version.major != major)
+        return constants.version.major > major;
+    if (constants.version.minor != minor)
+        return constants.version.minor > minor;
+    return constants.version.patch >= patch;
 }
 
 
