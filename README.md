@@ -53,7 +53,7 @@ See the troubleshooting list below.
 
 ### Why isn't this animation I added working?
 
-First make sure animations are working at all (see above). Check the [GUIDE.md][guide] to make sure your new animation follows the correct format. If you're still stuck you can join pret's [Discord](https://discord.gg/d5dubZ3) and ask for help in the `#porymap` channel.
+For any new tileset animations you've created you'll need to add animation data to tell the plug-in how to recreate it (the plug-in comes pre-loaded with data for all the animations in the original games). Check the [GUIDE.md][guide] to see how to do this, and make sure your new animation data follows the correct format. If the original game's animations also aren't working see the troubleshooting list above. If you're still stuck you can join pret's [Discord](https://discord.gg/d5dubZ3) and ask for help in the `#porymap` channel.
 
 ### Why aren't the border/map connections animating?
 
