@@ -119,7 +119,7 @@ export function onProjectOpened(projectPath) {
     maxMetatileLayer = constants.layers_per_metatile;
     maxPrimaryTile = constants.max_primary_tiles;
     maxSecondaryTile = maxPrimaryTile + constants.max_secondary_tiles;
-    inAnimatedView = !(utility.getMainTab() || utility.getMapViewTab());
+    updateTabs(utility.getMainTab(), utility.getMapViewTab());
     if (verifyPorymapVersion(5,1,1)) { // registerToggleAction was introduced in 5.1.1
         utility.registerToggleAction("toggleAnimation", "Toggle Map Animations", toggleShortcut, animateOnLaunch);
     } else {
@@ -172,13 +172,18 @@ export function onTilesetUpdated(tilesetName) {
     loadAnimations = true;
 }
 
+function updateTabs(mainTab, mapViewTab) {
+    // Animations only run on the Map tab, and Metatiles or Prefab sub-tab
+    inAnimatedView = (mainTab == 0) && (mapViewTab == 0 || mapViewTab == 2);
+}
+
 export function onMainTabChanged(oldTab, newTab) {
-    inAnimatedView = !(newTab || utility.getMapViewTab());
+    updateTabs(newTab, utility.getMapViewTab());
     tryStartAnimation();
 }
 
 export function onMapViewTabChanged(oldTab, newTab) {
-    inAnimatedView = !newTab; // Main tab assumed to be map tab
+    updateTabs(0, newTab); // Main tab assumed to be map tab
     tryStartAnimation();
 }
 
