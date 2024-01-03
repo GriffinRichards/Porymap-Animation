@@ -17,7 +17,6 @@
 
 import {
     toggleShortcut,
-    reloadShortcut,
     animateOnLaunch,
     versionData,
     tilesetsPath,
@@ -126,7 +125,6 @@ export function onProjectOpened(projectPath) {
     } else {
         utility.registerAction("toggleAnimation", "Toggle Map Animations", toggleShortcut);
     }
-    utility.registerAction("reloadAnimation", "Reload Map Animations", reloadShortcut)
     buildTilesetsData();
     if (animateOnLaunch) toggleAnimation();
 }
@@ -201,7 +199,7 @@ export function onBlockChanged(x, y, prevBlock, newBlock) {
 // and it will call itself at a regular interval via setTimeout. Other functions
 // can interact with the animation loop by setting 'animating' to false to stop
 // animation or 'loadAnimations' to true to reload animation data.
-//-----------------------------------------------------------------------
+//-------------------------------------------------------------------------------
 export function animate() {
     if (!shouldAnimate()) {
         // Stop animation
@@ -259,16 +257,6 @@ function resetAnimation() {
     animLayerMap = {};
     staticLayerMap = {};
     metatileCache = {};
-}
-
-export function reloadAnimation() {
-    let temp = animating;
-    animating = false;
-    resetAnimation();
-    buildTilesetsData();
-    loadAnimations = true;
-    animating = temp;
-    tryStartAnimation();
 }
 
 //--------------------------------------------------------------------
@@ -331,7 +319,6 @@ function calculateTimerMax() {
 // then scans the map and tries to add an animation at each space.
 //-------------------------------------------------------------------
 function loadMapAnimations() {
-    if (logBasicInfo) log("Loading animations...");
     loadAnimations = false;
 
     curTilesetsAnimData = getCurrentTileAnimationData();

@@ -6,7 +6,6 @@ After installation, the first thing you should take a look at is the `settings.j
 | Setting | Description | Default value |
 ----------|-------------|-----------------
 | `toggleShortcut` | The keyboard shortcut for `Toggle Map Animations` | `"Ctrl+A"` |
-| `reloadShortcut` | The keyboard shortcut for `Reload Map Animations` | `""` |
 | `animateOnLaunch` | Whether animations should be running when Porymap is first opened | `true` |
 | `tilesetsPath` | The base filepath for all animation images | `"data/tilesets/"` |
 | `primaryPath` | The base filepath for animation images in primary tilesets | `tilesetsPath + "primary/"` |
