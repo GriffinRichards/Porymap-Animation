@@ -1,6 +1,6 @@
 ## Prerequisites
 
-Porymap release version 5.0.0 or above is required. Porymap can be [downloaded here](https://github.com/huderlem/porymap/releases).
+This plug-in works with Porymap, which can be [downloaded here](https://github.com/huderlem/porymap/releases). Version 5.2.0 or newer is suggested. Version 5.0.0 is the oldest supported version.
 
 If you are using Porymap version 4.5.0, you can instead download the [older version of this script](https://github.com/GriffinRichards/Porymap-Animation/releases/tag/v1.0.0).
 
@@ -14,16 +14,21 @@ There is very little this plug-in needs from your project, and what little it do
 git clone https://github.com/GriffinRichards/Porymap-Animation
 ```
 
-2. Navigate to your decompilation project folder and locate your `porymap.project.cfg` file. If you do not have one then open your project with Porymap and one will be created.
+2. Launch Porymap and open the `Options -> Custom Scripts...` window.
 
-3. Open this file and locate the `custom_scripts` field, and include the path to `Porymap-Animation/animation.js` in this field. For instance if you cloned `Porymap-Animation` inside your project folder and had no pre-existing custom scripts, the field should look like this
-```
-custom_scripts=Porymap-Animation/animation.js
-```
+    <details>
+        <summary><i>If using a Porymap version older than 5.2.0...</i></summary>
 
-That's it! If Porymap is currently open relaunch it.
+    >   You won't have `Options -> Custom Scripts...` available. You'll need to manually specify the path to `animation.js` under `custom_scripts` in `porymap.user.cfg` or `porymap.project.cfg`.
+    >   After specifying this path you can skip the remaining steps.
+    </details>
 
-You should see two new options under `Tools`, `Toggle Map Animations` and `Reload Map Animations`. The toggle will turn the animations on or off, and the reload can be used to restart animation if you encounter an issue.
+3. Select the `Load Script` button, then in the file prompt navigate to and select `Porymap-Animation/animation.js`.
+
+4. Close the window by selecting `OK`.
+
+
+That's it! You should now see the new option `Toggle Map Animations` available under `Tools`, which you can use to turn the animations on or off.
 
 For information on creating your own animations or changing the animation settings see [GUIDE.md](https://github.com/GriffinRichards/Porymap-Animation/blob/master/GUIDE.md)
 
