@@ -482,12 +482,12 @@ function getMetatileAnimData(metatileId) {
     positions.static.sort((a, b) => b - a);
     positions.anim.sort((a, b) => b - a);
     for (let layer = 0; layer < maxMetatileLayer; layer++) {
-        while (positions.static[0] && Math.floor(positions.static.slice(-1) / tilesPerLayer) == layer) {
+        while (positions.static.length && Math.floor(positions.static.slice(-1) / tilesPerLayer) == layer) {
             // Assemble data entry for static tile
             let tilePos = positions.static.pop();
             metatileData.push({animates: false, pos: tilePos, tile: tiles[tilePos]});
         }
-        while (positions.anim[0] && Math.floor(positions.anim.slice(-1) / tilesPerLayer) == layer) {
+        while (positions.anim.length && Math.floor(positions.anim.slice(-1) / tilesPerLayer) == layer) {
             // Assemble data entry for animated tile
             let tilePos = positions.anim.pop();
             let dim = dimensions[tilePos];
