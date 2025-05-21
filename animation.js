@@ -351,21 +351,25 @@ function calculateTimerMax() {
 function loadMapAnimations() {
     loadAnimations = false;
 
+    // Initialize layerRangeMap
+    layerRangeMap = {};
+    for (let x = 0; x < mapWidth; x++) {
+        layerRangeMap[x] = {};
+        for (let y = 0; y < mapHeight; y++) {
+            layerRangeMap[x][y] = {start: -1, end: -1};
+        }
+    }
+
     curTilesetsAnimData = getCurrentTileAnimationData();
     if (curTilesetsAnimData == undefined) {
-        if (logBasicInfo) log("No animations on this map");
         return;
     }
     debug_printAnimData(curTilesetsAnimData);
 
-    layerRangeMap = {};
-    for (let x = 0; x < mapWidth; x++) {
-        layerRangeMap[x] = {};
-        for (let y = 0; y < mapHeight; y++)
-            tryAddAnimation(x, y);
+    for (let x = 0; x < mapWidth; x++)
+    for (let y = 0; y < mapHeight; y++) {
+        tryAddAnimation(x, y);
     }
-
-    if (logBasicInfo) log("Map animations loaded");
 }
 
 //------------------------------------------------------------------
@@ -409,7 +413,6 @@ function tryRemoveAnimation(x, y) {
 // layers were used.
 //-----------------------------------------------------------------
 function tryAddAnimation(x, y) {
-    layerRangeMap[x][y] = {start: -1, end: -1};
     let curStaticLayers = [];
     let metatileId = map.getMetatileId(x, y);
     let metatileData = metatileCache[metatileId];
@@ -554,7 +557,7 @@ function scanTiles(tiles) {
 }
 
 function isAnimated(tileId) {
-    return curTilesetsAnimData[tileId] != undefined;
+    return curTilesetsAnimData != undefined && curTilesetsAnimData[tileId] != undefined;
 }
 
 
