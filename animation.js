@@ -178,6 +178,7 @@ export function onMapShifted(xDelta, yDelta) {
         if (!newMap[x]) newMap[x] = {};
         for (let y = 0; y < mapHeight; y++) {
             if (!newMap[x][y]) newMap[x][y] = {start: -1, end: -1};
+            if (!layerRangeMap[x] || !layerRangeMap[x][y]) continue;
             let layerStart = layerRangeMap[x][y].start;
             if (layerStart == -1) continue;
             let newX = getWrappedMapCoord(x + xDelta, mapWidth);
